@@ -1,0 +1,12 @@
+# Xcode
+.DS_Store
+*/build/
+*.derivedData
+*.xcuserstate
+xcuserdata/
+
+# Swift Package Manager
+.build/
+
+# Secrets (IMPORTANT)
+Secrets.xcconfig

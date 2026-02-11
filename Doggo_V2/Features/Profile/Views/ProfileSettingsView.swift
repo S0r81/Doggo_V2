@@ -1,0 +1,121 @@
+//
+//  ProfileSettingsView.swift
+//  Doggo
+//
+//  Created by Sorest on 1/14/26.
+//
+
+import SwiftUI
+import SwiftData
+
+struct ProfileSettingsView: View {
+    @Environment(\.dismiss) var dismiss
+    @Bindable var profile: UserProfile
+    
+    @State private var weightLbs: Int = 150
+    @State private var heightInches: Int = 70
+    
+    let goals = ["Build Muscle", "Lose Fat", "Strength", "Endurance", "General Health"]
+    let levels = ["Beginner", "Intermediate", "Advanced"]
+    let activities = ["Sedentary", "Lightly Active", "Active", "Very Active (Athlete)"]
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                // Header (Same as before)
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 10) {
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.system(size: 80))
+                                .foregroundStyle(.blue)
+                            Text(profile.name).font(.title2).bold()
+                            Text(profile.experienceLevel)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        Spacer()
+                    }
+                }.listRowBackground(Color.clear)
+                
+                // AI Context
+                Section(header: Text("AI Coach Context")) {
+                    Picker("Current Goal", selection: $profile.fitnessGoal) {
+                        ForEach(goals, id: \.self) { Text($0) }
+                    }
+                    Picker("Activity Level", selection: $profile.activityLevel) {
+                        ForEach(activities, id: \.self) { Text($0) }
+                    }
+                    Picker("Experience", selection: $profile.experienceLevel) {
+                        ForEach(levels, id: \.self) { Text($0) }
+                    }
+                }
+                
+                // NEW: AI Integration Section
+                Section(header: Text("Coach Integration"), footer: Text("When enabled, the AI will use your recent Coach Reports to adjust your weekly schedule and workout sets/reps.")) {
+                    Toggle(isOn: $profile.useCoachForSchedule) {
+                        Label("Optimize Weekly Planner", systemImage: "calendar")
+                    }
+                    Toggle(isOn: $profile.useCoachForRoutine) {
+                        Label("Optimize Workouts", systemImage: "dumbbell")
+                    }
+                }
+                
+                // Split Strategy
+                Section(header: Text("Training Strategy")) {
+                    Picker("Preferred Split", selection: Binding(
+                        get: { WorkoutSplit(rawValue: profile.splitPreference) ?? .flexible },
+                        set: { profile.splitPreference = $0.rawValue }
+                    )) {
+                        ForEach(WorkoutSplit.allCases, id: \.self) { split in
+                            Text(split.rawValue).tag(split)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        let currentSplit = WorkoutSplit(rawValue: profile.splitPreference) ?? .flexible
+                        Text(currentSplit.description).font(.subheadline).foregroundStyle(.secondary).padding(.bottom, 4)
+                        Divider()
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("WHY IT WORKS:").font(.caption).bold().foregroundStyle(.green)
+                            Text(currentSplit.pros).font(.caption)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("CONSIDERATIONS:").font(.caption).bold().foregroundStyle(.orange)
+                            Text(currentSplit.cons).font(.caption)
+                        }
+                    }.padding(.vertical, 8)
+                }
+                
+                // Physical Stats
+                Section("Physical Stats") {
+                    Stepper("Age: \(profile.age)", value: $profile.age, in: 12...100)
+                    HStack {
+                        Text("Weight (lbs)")
+                        Spacer()
+                        TextField("Lbs", value: $weightLbs, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                            .onChange(of: weightLbs) { _, newValue in profile.weightKG = Double(newValue) * 0.453592 }
+                    }
+                    HStack {
+                        Text("Height (in)")
+                        Spacer()
+                        TextField("Inches", value: $heightInches, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                            .onChange(of: heightInches) { _, newValue in profile.heightCM = Double(newValue) * 2.54 }
+                    }
+                }
+            }
+            .navigationTitle("Profile")
+            .toolbar { Button("Done") { dismiss() } }
+            .onAppear {
+                weightLbs = Int(profile.weightKG * 2.20462)
+                heightInches = Int(profile.heightCM / 2.54)
+            }
+        }
+    }
+}
+
