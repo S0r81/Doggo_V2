@@ -2,6 +2,8 @@ import SwiftUI
 
 struct LastWorkoutHero: View {
     let session: WorkoutSession
+    @AppStorage("userTheme") private var userTheme: AppTheme = .light
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -38,11 +40,13 @@ struct LastWorkoutHero: View {
         }
         .padding(20)
         .background(
-            LinearGradient(colors: [Color(uiColor: .secondarySystemBackground), Color.black], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [Color.cardSurface(for: userTheme), Color.black], startPoint: .topLeading, endPoint: .bottomTrailing)
         )
         .cornerRadius(20)
         .padding(.horizontal)
         .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Last session: \(session.name), \(Int(session.duration / 60)) minutes, \(getUniqueExerciseCount(session)) exercises, \(session.sets.count) sets")
     }
     
     func getUniqueExerciseCount(_ session: WorkoutSession) -> Int {

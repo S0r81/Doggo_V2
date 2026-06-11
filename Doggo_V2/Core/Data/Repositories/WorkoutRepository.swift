@@ -15,12 +15,8 @@ protocol WorkoutRepositoryProtocol {
     func delete(_ session: WorkoutSession) async throws
 }
 
-final class WorkoutRepository: WorkoutRepositoryProtocol {
-    private let context: ModelContext
-    
-    init(context: ModelContext) {
-        self.context = context
-    }
+@ModelActor
+actor WorkoutRepository: WorkoutRepositoryProtocol {
     
     /// Fetches all incomplete (active) workout sessions
     func fetchActiveSessions() async throws -> [WorkoutSession] {
@@ -28,7 +24,7 @@ final class WorkoutRepository: WorkoutRepositoryProtocol {
             predicate: #Predicate { $0.isCompleted == false },
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
-        return try context.fetch(descriptor)
+        return try modelContext.fetch(descriptor)
     }
     
     /// Fetches all completed workout sessions
@@ -37,7 +33,7 @@ final class WorkoutRepository: WorkoutRepositoryProtocol {
             predicate: #Predicate { $0.isCompleted == true },
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
-        return try context.fetch(descriptor)
+        return try modelContext.fetch(descriptor)
     }
     
     /// Fetches recent completed sessions (for dashboard)
@@ -46,7 +42,7 @@ final class WorkoutRepository: WorkoutRepositoryProtocol {
             predicate: #Predicate { $0.isCompleted == true },
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
-        var sessions = try context.fetch(descriptor)
+        var sessions = try modelContext.fetch(descriptor)
         if sessions.count > limit {
             sessions = Array(sessions.prefix(limit))
         }
@@ -61,18 +57,21 @@ final class WorkoutRepository: WorkoutRepositoryProtocol {
                 $0.isCompleted == false && $0.date < oneDayAgo
             }
         )
-        return try context.fetch(descriptor)
+        return try modelContext.fetch(descriptor)
     }
     
     /// Saves a workout session
     func save(_ session: WorkoutSession) async throws {
-        context.insert(session)
-        try context.save()
+        modelContext.insert(session)
+        try modelContext.save()
     }
     
     /// Deletes a workout session
     func delete(_ session: WorkoutSession) async throws {
-        context.delete(session)
-        try context.save()
+        let id = session.persistentModelID
+        if let resolved = self[id, as: WorkoutSession.self] {
+            modelContext.delete(resolved)
+            try modelContext.save()
+        }
     }
 }

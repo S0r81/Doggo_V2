@@ -89,7 +89,8 @@ struct ExerciseAnalyticsView: View {
                                     .gesture(
                                         DragGesture()
                                             .onChanged { value in
-                                                let x = value.location.x - geometry[proxy.plotAreaFrame].origin.x
+                                                guard let plotFrame = proxy.plotFrame else { return }
+                                                let x = value.location.x - geometry[plotFrame].origin.x
                                                 if let date: Date = proxy.value(atX: x) {
                                                     rawSelectedDate = date
                                                     // Find closest point
@@ -125,8 +126,7 @@ struct ExerciseAnalyticsView: View {
                     }
                 }
                 .padding(.vertical)
-                .background(Color(uiColor: .secondarySystemBackground))
-                .cornerRadius(16)
+                .cardSurface(cornerRadius: 16)
                 .padding(.horizontal)
                 
                 // STATS GRID
@@ -216,8 +216,7 @@ struct StatBox: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .cornerRadius(12)
+        .cardSurface(cornerRadius: 12)
     }
 }
 

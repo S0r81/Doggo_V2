@@ -8,7 +8,9 @@ struct EmptyStateView: View {
     let message: String
     var actionTitle: String?
     var action: (() -> Void)?
-    
+    var secondaryActionTitle: String?
+    var secondaryAction: (() -> Void)?
+
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: icon)
@@ -34,6 +36,14 @@ struct EmptyStateView: View {
                         .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
+            }
+
+            if let secondaryActionTitle, let secondaryAction {
+                Button(action: secondaryAction) {
+                    Text(secondaryActionTitle)
+                        .fontWeight(.medium)
+                }
+                .buttonStyle(.bordered)
             }
         }
         .padding()

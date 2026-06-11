@@ -175,7 +175,7 @@ struct WeeklyPlannerView: View {
     }
     
     func removeRoutine(from day: String) {
-        withAnimation { userProfile?.weeklySchedule.removeValue(forKey: day) }
+        withAnimation { _ = userProfile?.weeklySchedule.removeValue(forKey: day) }
     }
     
     func startWorkout(routine: Routine) {
@@ -214,7 +214,7 @@ struct WeeklyPlannerView: View {
         Task {
             do {
                 // NEW: Use split AI service
-                let apiClient = container.geminiClient
+                let apiClient = container.aiClient
                 let prompt = GeminiPromptBuilder.buildSchedulePrompt(
                     profile: profile,
                     history: history,
@@ -270,7 +270,7 @@ struct WeeklyPlannerView: View {
                 Task {
                     do {
                         // Use new AI service
-                        let apiClient = container.geminiClient
+                        let apiClient = container.aiClient
                         let prompt = GeminiPromptBuilder.buildRoutineContentPrompt(
                             routineName: routineName,
                             profile: userProfile
@@ -385,9 +385,7 @@ struct DraggableRoutineCard: View {
         }
         .padding(12)
         .frame(width: 140, alignment: .leading)
-        .background(Color(uiColor: .systemBackground))
-        .cornerRadius(10)
-        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .cardSurface(cornerRadius: 10, shadowed: true)
     }
 }
 

@@ -65,6 +65,37 @@ struct ExerciseDetailView: View {
     var personalRecordLabel: String {
         isCardio ? "Longest Run" : "Personal Record"
     }
+
+    /// Distinct workouts containing this exercise (history.count is SETS, not sessions).
+    var totalSessions: Int {
+        Set(history.compactMap { $0.workoutSession?.id }).count
+    }
+
+    // MARK: - Chart Data (one point per SESSION, best value that day)
+    // Plotting every set produced a sawtooth — warm-up sets visually erased progress.
+    struct ProgressPoint: Identifiable {
+        let id = UUID()
+        let date: Date
+        let value: Double
+    }
+
+    var chartData: [ProgressPoint] {
+        var bestBySession: [UUID: (date: Date, value: Double)] = [:]
+        for set in history {
+            guard let session = set.workoutSession else { continue }
+            let value = isCardio ? normalizedDistance(set) : normalizedWeight(set)
+            if let existing = bestBySession[session.id] {
+                if value > existing.value {
+                    bestBySession[session.id] = (session.date, value)
+                }
+            } else {
+                bestBySession[session.id] = (session.date, value)
+            }
+        }
+        return bestBySession.values
+            .map { ProgressPoint(date: $0.date, value: $0.value) }
+            .sorted { $0.date < $1.date }
+    }
     
     var body: some View {
         ScrollView {
@@ -80,45 +111,44 @@ struct ExerciseDetailView: View {
                     
                     DetailStatBox(
                         title: "Total Sessions",
-                        value: "\(history.count)",
+                        value: "\(totalSessions)",
                         color: .blue
                     )
                 }
                 .padding(.horizontal)
                 
                 // 2. The Chart
-                if history.count > 1 {
+                if chartData.count > 1 {
                     VStack(alignment: .leading) {
-                        Text(isCardio ? "Progress (Distance)" : "Progress (Max Weight)")
+                        Text(isCardio ? "Progress (Best Distance per Session)" : "Progress (Best Weight per Session)")
                             .font(.headline)
-                        
+
                         Chart {
-                            ForEach(history) { set in
-                                if let date = set.workoutSession?.date {
-                                    if isCardio {
-                                        // Plot Normalized Distance
-                                        LineMark(
-                                            x: .value("Date", date),
-                                            y: .value("Distance", normalizedDistance(set))
-                                        )
-                                        .interpolationMethod(.catmullRom)
-                                        .foregroundStyle(Color.accentColor)
-                                    } else {
-                                        // Plot Normalized Weight
-                                        LineMark(
-                                            x: .value("Date", date),
-                                            y: .value("Weight", normalizedWeight(set))
-                                        )
-                                        .interpolationMethod(.catmullRom)
-                                        .foregroundStyle(Color.accentColor)
-                                    }
-                                }
+                            ForEach(chartData) { point in
+                                LineMark(
+                                    x: .value("Date", point.date),
+                                    y: .value(isCardio ? "Distance" : "Weight", point.value)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .symbol(Circle())
+                                .foregroundStyle(Color.accentColor)
+
+                                AreaMark(
+                                    x: .value("Date", point.date),
+                                    y: .value(isCardio ? "Distance" : "Weight", point.value)
+                                )
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [Color.accentColor.opacity(0.25), .clear],
+                                        startPoint: .top, endPoint: .bottom
+                                    )
+                                )
                             }
                         }
+                        .chartYScale(domain: .automatic(includesZero: false))
                         .frame(height: 250)
                         .padding()
-                        .background(Color(uiColor: .secondarySystemBackground))
-                        .cornerRadius(12)
+                        .cardSurface(cornerRadius: 12)
                     }
                     .padding(.horizontal)
                 } else {
@@ -162,8 +192,7 @@ struct ExerciseDetailView: View {
                             }
                         }
                         .padding()
-                        .background(Color(uiColor: .secondarySystemBackground))
-                        .cornerRadius(10)
+                        .cardSurface(cornerRadius: 10)
                         .padding(.horizontal)
                     }
                 }
@@ -204,8 +233,7 @@ struct DetailStatBox: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .cornerRadius(12)
+        .cardSurface(cornerRadius: 12)
     }
 }
 

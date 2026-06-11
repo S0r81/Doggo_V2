@@ -1,8 +1,6 @@
 //
 //  Exercise.swift
-//  Doggo
-//
-//  Created by Sorest on 1/5/26.
+//  Doggo_V2
 //
 
 import SwiftData
@@ -14,24 +12,33 @@ class Exercise {
     var name: String
     var type: String // "Strength" or "Cardio"
     var muscleGroup: String
-    
-    // NEW: Defines what metrics to track for cardio
-    // Options: "Distance" (default), "Steps", "Time"
     var cardioType: String
+    
+    // MARK: - NEW PROPERTIES
+    var isFavorite: Bool = false
+    var isCustom: Bool = false // If true, user can delete it.
     
     @Relationship(deleteRule: .cascade)
     var sets: [WorkoutSet] = []
+    
+    // Adding inverse relationships so SwiftData knows to nullify the reference in RoutineItem
+    // if this exercise is ever deleted. This prevents the "backing data could no longer be found" crash.
+    @Relationship(inverse: \RoutineItem.exercise)
+    var routineItems: [RoutineItem] = []
     
     init(
         name: String,
         type: String = "Strength",
         muscleGroup: String = "Other",
-        cardioType: String = "Distance"
+        cardioType: String = "Distance",
+        isCustom: Bool = true // Default to true for new user-created exercises
     ) {
         self.id = UUID()
         self.name = name
         self.type = type
         self.muscleGroup = muscleGroup
         self.cardioType = cardioType
+        self.isCustom = isCustom
+        self.isFavorite = false
     }
 }

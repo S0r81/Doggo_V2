@@ -1,0 +1,10 @@
+# Secrets — never commit API keys
+Core/Data/Network/AIService/Secrets.xcconfig
+
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/

@@ -55,8 +55,7 @@ struct CoachView: View {
                             } else {
                                 Text(LocalizedStringKey(cachedAdvice))
                                     .padding()
-                                    .background(Color(uiColor: .secondarySystemBackground))
-                                    .cornerRadius(12)
+                                    .cardSurface(cornerRadius: 12)
                                     .contextMenu {
                                         Button {
                                             copyToClipboard()
@@ -78,8 +77,9 @@ struct CoachView: View {
                         Image(systemName: "sparkles")
                     }
                     .disabled(isLoading)
+                    .accessibilityLabel("Regenerate report")
                 }
-                
+
                 ToolbarItemGroup(placement: .confirmationAction) {
                     if !cachedAdvice.isEmpty {
                         Button(action: copyToClipboard) {
@@ -87,6 +87,7 @@ struct CoachView: View {
                                 .contentTransition(.symbolEffect(.replace))
                         }
                         .disabled(isLoading)
+                        .accessibilityLabel(isCopied ? "Copied" : "Copy report")
                     }
                     
                     Button("Done") { dismiss() }
@@ -125,7 +126,7 @@ struct CoachView: View {
         Task {
             do {
                 // NEW: Use split AI service
-                let apiClient = container.geminiClient
+                let apiClient = container.aiClient
                 let prompt = GeminiPromptBuilder.buildAnalysisPrompt(
                     sessions: sessions,
                     profile: profiles.first

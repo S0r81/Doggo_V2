@@ -12,30 +12,29 @@ protocol RoutineRepositoryProtocol {
     func delete(_ routine: Routine) async throws
 }
 
-final class RoutineRepository: RoutineRepositoryProtocol {
-    private let context: ModelContext
-    
-    init(context: ModelContext) {
-        self.context = context
-    }
+@ModelActor
+actor RoutineRepository: RoutineRepositoryProtocol {
     
     /// Fetches all routines
     func fetchAll() async throws -> [Routine] {
         let descriptor = FetchDescriptor<Routine>(
             sortBy: [SortDescriptor(\.name)]
         )
-        return try context.fetch(descriptor)
+        return try modelContext.fetch(descriptor)
     }
     
     /// Saves a routine
     func save(_ routine: Routine) async throws {
-        context.insert(routine)
-        try context.save()
+        modelContext.insert(routine)
+        try modelContext.save()
     }
     
     /// Deletes a routine
     func delete(_ routine: Routine) async throws {
-        context.delete(routine)
-        try context.save()
+        let id = routine.persistentModelID
+        if let resolved = self[id, as: Routine.self] {
+            modelContext.delete(resolved)
+            try modelContext.save()
+        }
     }
 }

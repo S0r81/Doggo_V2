@@ -8,6 +8,7 @@ import Combine
 import AVFoundation
 import UserNotifications
 import UIKit
+import ActivityKit
 
 class RestTimerManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     // MARK: - Published State
@@ -20,6 +21,7 @@ class RestTimerManager: NSObject, ObservableObject, UNUserNotificationCenterDele
     private var timer: AnyCancellable?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var endTime: Date? // <--- THE KEY FIX
+    private var liveActivity: Activity<DoggoActivityAttributes>?
     
     override init() {
         super.init()
@@ -51,8 +53,11 @@ class RestTimerManager: NSObject, ObservableObject, UNUserNotificationCenterDele
         
         // 5. Start Ticker
         startTicker()
+
+        // 6. Live Activity (lock screen / Dynamic Island countdown)
+        syncLiveActivity()
     }
-    
+
     func stopTimer() {
         isActive = false
         endTime = nil // Clear timestamp
@@ -60,6 +65,7 @@ class RestTimerManager: NSObject, ObservableObject, UNUserNotificationCenterDele
         timer = nil
         endBackgroundTask()
         cancelNotification()
+        endLiveActivity()
     }
     
     func addTime(_ seconds: Int) {
@@ -80,8 +86,39 @@ class RestTimerManager: NSObject, ObservableObject, UNUserNotificationCenterDele
             cancelNotification()
             scheduleNotification(seconds: timeRemaining)
         }
+
+        // Push the Live Activity's end time forward too
+        syncLiveActivity()
     }
-    
+
+    // MARK: - Live Activity
+    // Renders once the DoggoWidget extension target exists; until then the
+    // guarded request is a harmless no-op.
+    private func syncLiveActivity() {
+        guard let endTime else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+
+        let content = ActivityContent(
+            state: DoggoActivityAttributes.ContentState(endTime: endTime),
+            staleDate: endTime
+        )
+
+        if let activity = liveActivity {
+            Task { await activity.update(content) }
+        } else {
+            liveActivity = try? Activity.request(
+                attributes: DoggoActivityAttributes(),
+                content: content
+            )
+        }
+    }
+
+    private func endLiveActivity() {
+        guard let activity = liveActivity else { return }
+        liveActivity = nil
+        Task { await activity.end(nil, dismissalPolicy: .immediate) }
+    }
+
     // MARK: - Logic
     private func startTicker() {
         timer?.cancel()

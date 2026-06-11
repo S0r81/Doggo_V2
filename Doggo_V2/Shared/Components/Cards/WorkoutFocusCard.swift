@@ -1,10 +1,16 @@
+//
+//  WorkoutFocusCard.swift
+//  Doggo_V2
+//
+
 import SwiftUI
 import Charts
 
 struct WorkoutFocusCard: View {
     let data: [ExerciseStat]
-    @State private var selectedSegment: String? = nil
-    private let colors: [Color] = [.blue, .green, .orange, .purple, .pink]
+    @Binding var selectedSegment: String? // Changed to Binding
+    
+    private let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .red, .teal, .indigo]
     
     private var totalSets: Int {
         data.reduce(0) { $0 + $1.count }
@@ -23,80 +29,68 @@ struct WorkoutFocusCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Workout Focus").font(.headline).padding(.horizontal)
-            
-            VStack(spacing: 8) {
-                if let stat = selectedStat {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(color(for: stat.name))
-                            .frame(width: 10, height: 10)
-                        Text(stat.name)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .lineLimit(1)
-                    }
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                } else {
-                    Text("Tap a segment")
-                        .font(.subheadline)
+        VStack(spacing: 8) {
+            // CENTER INFO
+            if let stat = selectedStat {
+                VStack(spacing: 2) {
+                    Text("\(stat.count)")
+                        .font(.title).bold()
+                        .foregroundStyle(color(for: stat.name))
+                    Text(stat.name) // Show Name
+                        .font(.caption).bold()
                         .foregroundStyle(.secondary)
                 }
-                
-                Chart(data) { item in
-                    SectorMark(
-                        angle: .value("Count", item.count),
-                        innerRadius: .ratio(0.65),
-                        angularInset: 2
-                    )
-                    .cornerRadius(5)
-                    .foregroundStyle(by: .value("Name", item.name))
-                    .opacity(selectedSegment == nil || selectedSegment == item.name ? 1.0 : 0.4)
+                .transition(.opacity)
+            } else {
+                VStack(spacing: 2) {
+                    Text("\(totalSets)")
+                        .font(.title).bold()
+                        .foregroundStyle(.primary)
+                    Text("Total Sets")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .chartLegend(.hidden)
-                .chartBackground { proxy in
-                    VStack(spacing: 2) {
-                        if let stat = selectedStat {
-                            Text("\(stat.count)")
-                                .font(.title)
-                                .bold()
-                                .foregroundStyle(color(for: stat.name))
-                            Text("sets")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("\(totalSets)")
-                                .font(.title)
-                                .bold()
-                                .foregroundStyle(.primary)
-                            Text("Total Sets")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                .transition(.opacity)
+            }
+            
+            // THE CHART
+            Chart(data) { item in
+                SectorMark(
+                    angle: .value("Count", item.count),
+                    innerRadius: .ratio(0.65),
+                    angularInset: 2
+                )
+                .cornerRadius(5)
+                .foregroundStyle(color(for: item.name)) // Use consistent colors
+                .opacity(selectedSegment == nil || selectedSegment == item.name ? 1.0 : 0.3)
+            }
+            .chartLegend(.hidden)
+            .frame(height: 180) // Fixed height for consistency
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in
+                            handleTap(at: location, in: geometry.size)
                         }
-                    }
-                }
-                .frame(width: 180, height: 180)
-                .chartOverlay { proxy in
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(Color.clear)
-                            .contentShape(Rectangle())
-                            .onTapGesture { location in
-                                handleTap(at: location, in: geometry.size)
-                            }
-                    }
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color(uiColor: .secondarySystemBackground))
-            .cornerRadius(16)
-            .padding(.horizontal)
-            .animation(.easeInOut(duration: 0.2), value: selectedSegment)
         }
+        .padding()
+        .cardSurface()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private var accessibilitySummary: String {
+        let breakdown = data.prefix(4)
+            .map { "\($0.name) \($0.count) sets" }
+            .joined(separator: ", ")
+        return "Workout focus chart. \(totalSets) total sets. \(breakdown)"
     }
     
+    // MARK: - Tap Logic (Kept exactly as you had it)
     private func handleTap(at location: CGPoint, in size: CGSize) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let dx = location.x - center.x
@@ -106,16 +100,12 @@ struct WorkoutFocusCard: View {
         let innerRadius = outerRadius * 0.65
         
         guard distance >= innerRadius && distance <= outerRadius else {
-            withAnimation {
-                selectedSegment = nil
-            }
+            withAnimation { selectedSegment = nil }
             return
         }
         
         var angle = atan2(dx, -dy)
-        if angle < 0 {
-            angle += 2 * .pi
-        }
+        if angle < 0 { angle += 2 * .pi }
         let tapPercentage = angle / (2 * .pi)
         
         var cumulativePercentage: Double = 0

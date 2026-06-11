@@ -14,19 +14,17 @@ protocol ExerciseRepositoryProtocol {
     func delete(_ exercise: Exercise) async throws
 }
 
-final class ExerciseRepository: ExerciseRepositoryProtocol {
-    private let context: ModelContext
-    
-    init(context: ModelContext) {
-        self.context = context
-    }
+@ModelActor
+actor ExerciseRepository: ExerciseRepositoryProtocol {
+    // The @ModelActor macro automatically generates the initializer taking a ModelContainer,
+    // and provides a thread-safe `modelContext`.
     
     /// Fetches all exercises sorted by name
     func fetchAll() async throws -> [Exercise] {
         let descriptor = FetchDescriptor<Exercise>(
             sortBy: [SortDescriptor(\.name)]
         )
-        return try context.fetch(descriptor)
+        return try modelContext.fetch(descriptor)
     }
     
     /// Fetches exercises by muscle group
@@ -35,7 +33,7 @@ final class ExerciseRepository: ExerciseRepositoryProtocol {
             predicate: #Predicate { $0.muscleGroup == group },
             sortBy: [SortDescriptor(\.name)]
         )
-        return try context.fetch(descriptor)
+        return try modelContext.fetch(descriptor)
     }
     
     /// Searches exercises by name (case-insensitive)
@@ -48,13 +46,18 @@ final class ExerciseRepository: ExerciseRepositoryProtocol {
     
     /// Saves an exercise
     func save(_ exercise: Exercise) async throws {
-        context.insert(exercise)
-        try context.save()
+        modelContext.insert(exercise)
+        try modelContext.save()
     }
     
     /// Deletes an exercise
     func delete(_ exercise: Exercise) async throws {
-        context.delete(exercise)
-        try context.save()
+        // Safely resolve the model into this actor's context before deleting
+        // This prevents cross-thread crashes!
+        let id = exercise.persistentModelID
+        if let resolvedExercise = self[id, as: Exercise.self] {
+            modelContext.delete(resolvedExercise)
+            try modelContext.save()
+        }
     }
 }

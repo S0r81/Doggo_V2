@@ -273,7 +273,7 @@ struct RoutineGeneratorView: View {
         Task {
             do {
                 // NEW: Use split AI service
-                let apiClient = container.geminiClient
+                let apiClient = container.aiClient
                 let prompt = GeminiPromptBuilder.buildRoutinePrompt(
                     history: history,
                     availableExercises: exercises,

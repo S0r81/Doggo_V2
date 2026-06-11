@@ -3,7 +3,7 @@
 //  Doggo_V2
 //
 //  Created by Sorest on 1/5/26.
-//  Updated for Clean Architecture: 2026
+//  Updated for Animations: 2026
 //
 
 import SwiftUI
@@ -18,6 +18,7 @@ struct DashboardView: View {
     @State private var viewModel = DashboardViewModel()
     @State private var showFocusDetail = false
     @State private var showPlanner = false
+    @State private var dashboardSegment: String? = nil
     @AppStorage("userTheme") private var userTheme: AppTheme = .light
     @AppStorage("unitSystem") private var unitSystem: UnitSystem = .imperial
     
@@ -26,8 +27,8 @@ struct DashboardView: View {
     @State private var showProfile = false
     
     // Tab States for Paging
-    @State private var consistencyPage: Int = 4 // Default to last (current week)
-    @State private var volumePage: Int = 2      // Default to last (current month)
+    @State private var consistencyPage: Int = 4
+    @State private var volumePage: Int = 2
     
     // Fetch History
     @Query(
@@ -45,20 +46,38 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
+                    // MARK: - ANIMATED SECTIONS
+                    
                     headerView
+                        .animateEntry(index: 0)
+                    
                     quickActionsView
+                        .animateEntry(index: 1)
+                    
                     statsGridView
+                        .animateEntry(index: 2)
                     
                     // SWIPABLE CHARTS
                     weeklyConsistencyView
+                        .animateEntry(index: 3)
+                    
                     volumeTrendView
+                        .animateEntry(index: 4)
                     
                     recentBestsView
+                        .animateEntry(index: 5)
+                    
                     workoutFocusView
+                        .animateEntry(index: 6)
+                    
                     lastWorkoutView
+                        .animateEntry(index: 7)
                 }
+                .padding(.bottom, 20)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            // MARK: - THEME FIX: Use Dynamic Background
+            // Was: .background(Color(uiColor: .systemGroupedBackground))
+            .background(Color.background(for: userTheme))
             
             // Sheets
             .sheet(isPresented: $showSettings) {
@@ -85,6 +104,7 @@ struct DashboardView: View {
                     Button(action: { showSettings = true }) {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel("Settings")
                 }
             }
         }
@@ -111,8 +131,11 @@ struct DashboardView: View {
             Button(action: { showProfile = true }) {
                 Image(systemName: "person.crop.circle")
                     .font(.system(size: 40))
+                    // Use Accent Color (Cyan in Nordic)
                     .foregroundStyle(Color.accentColor)
             }
+            .buttonStyle(BouncyButtonStyle())
+            .accessibilityLabel("Open profile")
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -122,57 +145,62 @@ struct DashboardView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 Button(action: { selectedTab = 2 }) {
+                    // Note: You hardcoded colors here (.blue, .purple).
+                    // If you want these to match the theme strictly, change them to Color.accentColor
                     QuickActionButton(title: "Log Workout", icon: "plus", color: .blue)
                 }
+                .buttonStyle(BouncyButtonStyle())
                 
                 Button(action: { selectedTab = 1 }) {
                     QuickActionButton(title: "New Routine", icon: "list.bullet.clipboard", color: .purple)
                 }
+                .buttonStyle(BouncyButtonStyle())
                 
                 Button(action: { showCoach = true }) {
                     QuickActionButton(title: "AI Coach", icon: "brain.head.profile", color: .orange)
                 }
+                .buttonStyle(BouncyButtonStyle())
                 
                 Button(action: { showPlanner = true }) {
                     QuickActionButton(title: "Plan Week", icon: "calendar.badge.clock", color: .teal)
                 }
+                .buttonStyle(BouncyButtonStyle())
             }
             .padding(.horizontal)
         }
     }
     
     private var statsGridView: some View {
+        // "Total" prefixes make clear these are all-time numbers, not weekly ones.
         LazyVGrid(columns: columns, spacing: 16) {
-            StatCard(title: "Workouts", value: "\(recentSessions.count)", icon: "dumbbell.fill", color: .blue)
-            StatCard(title: "Volume", value: viewModel.getTotalVolume(from: recentSessions, preferredUnit: unitSystem.rawValue), icon: "chart.bar.fill", color: .green)
-            StatCard(title: "Time", value: viewModel.getTotalDuration(from: recentSessions), icon: "clock.fill", color: .orange)
-            StatCard(title: "Streak", value: "\(viewModel.getCurrentStreak(from: recentSessions)) Days", icon: "flame.fill", color: .red)
+            StatCard(title: "Total Workouts", value: "\(recentSessions.count)", icon: "dumbbell.fill", color: .blue)
+            StatCard(title: "Total Volume", value: viewModel.getTotalVolume(from: recentSessions, preferredUnit: unitSystem.rawValue), icon: "chart.bar.fill", color: .green)
+            StatCard(title: "Total Time", value: viewModel.getTotalDuration(from: recentSessions), icon: "clock.fill", color: .orange)
+            StatCard(title: "Current Streak", value: "\(viewModel.getCurrentStreak(from: recentSessions)) Days", icon: "flame.fill", color: .red)
         }
         .padding(.horizontal)
     }
     
     // MARK: - PAGED Consistency Chart
     private var weeklyConsistencyView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let pages = viewModel.getConsistencyPages(from: recentSessions)
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Consistency").font(.headline)
                 Spacer()
+                if !pages.isEmpty {
+                    ChartPagerControl(page: $consistencyPage, labels: pages.map(\.label))
+                }
             }
             .padding(.horizontal)
-            
-            let pages = viewModel.getConsistencyPages(from: recentSessions)
-            
+
             if pages.isEmpty {
                 ContentUnavailableView("No Data", systemImage: "chart.bar")
             } else {
                 TabView(selection: $consistencyPage) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                         VStack(alignment: .leading) {
-                            Text(page.label)
-                                .font(.caption).bold()
-                                .foregroundStyle(.secondary)
-                                .padding(.bottom, 8)
-                            
                             Chart {
                                 ForEach(page.days) { day in
                                     BarMark(
@@ -191,8 +219,7 @@ struct DashboardView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(height: 160)
-                .background(Color(uiColor: .secondarySystemBackground))
-                .cornerRadius(16)
+                .cardSurface()
                 .padding(.horizontal)
             }
         }
@@ -200,17 +227,21 @@ struct DashboardView: View {
     
     // MARK: - PAGED Volume Chart
     private var volumeTrendView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let pages = viewModel.getVolumePages(from: recentSessions)
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .foregroundStyle(.green)
                 Text("Volume Trend")
                     .font(.headline)
+                Spacer()
+                if !pages.isEmpty {
+                    ChartPagerControl(page: $volumePage, labels: pages.map(\.label))
+                }
             }
             .padding(.horizontal)
-            
-            let pages = viewModel.getVolumePages(from: recentSessions)
-            
+
             if pages.isEmpty {
                 ContentUnavailableView("No Data", systemImage: "chart.bar")
                     .frame(height: 150)
@@ -218,11 +249,6 @@ struct DashboardView: View {
                 TabView(selection: $volumePage) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                         VStack(alignment: .leading) {
-                            Text(page.label)
-                                .font(.caption).bold()
-                                .foregroundStyle(.secondary)
-                                .padding(.bottom, 8)
-                            
                             Chart {
                                 ForEach(page.weeks) { item in
                                     LineMark(
@@ -262,8 +288,7 @@ struct DashboardView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(height: 200)
-                .background(Color(uiColor: .secondarySystemBackground))
-                .cornerRadius(16)
+                .cardSurface()
                 .padding(.horizontal)
             }
         }
@@ -279,7 +304,9 @@ struct DashboardView: View {
                     HStack(spacing: 16) {
                         ForEach(viewModel.getRecentBests(from: recentSessions)) { best in
                             if let exercise = best.exercise {
-                                NavigationLink(destination: ExerciseAnalyticsView(exercise: exercise)) {
+                                // Consolidated: one canonical exercise screen
+                                // (ExerciseAnalyticsView duplicated this with different math)
+                                NavigationLink(destination: ExerciseDetailView(exercise: exercise)) {
                                     VStack(alignment: .leading, spacing: 8) {
                                         HStack {
                                             Image(systemName: "trophy.fill").foregroundStyle(.yellow)
@@ -292,10 +319,9 @@ struct DashboardView: View {
                                     }
                                     .padding()
                                     .frame(width: 160)
-                                    .background(Color(uiColor: .secondarySystemBackground))
-                                    .cornerRadius(16)
+                                    .cardSurface()
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(BouncyButtonStyle())
                             }
                         }
                     }
@@ -306,7 +332,44 @@ struct DashboardView: View {
     }
     
     private var workoutFocusView: some View {
-        WorkoutFocusCard(data: viewModel.getTopExercises(from: recentSessions))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Weekly Focus", systemImage: "target")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button {
+                    showFocusDetail = true
+                } label: {
+                    HStack(spacing: 2) {
+                        Text("Details")
+                        Image(systemName: "chevron.right").font(.caption2.bold())
+                    }
+                }
+                .font(.caption).bold().foregroundStyle(Color.accentColor)
+            }
+            .padding(.horizontal)
+            
+            let calendar = Calendar.current
+            let now = Date()
+            let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
+            let weeklySessions = recentSessions.filter { $0.date >= startOfWeek }
+            
+            let weeklyStats = viewModel.getTopExercises(from: weeklySessions)
+            
+            if weeklyStats.isEmpty {
+                ContentUnavailableView("No Logged Sets", systemImage: "dumbbell")
+                    .frame(height: 120)
+                    .cardSurface(cornerRadius: 12)
+                    .padding(.horizontal)
+            } else {
+                WorkoutFocusCard(data: weeklyStats, selectedSegment: $dashboardSegment)
+                    .padding(.horizontal)
+            }
+        }
+        .sheet(isPresented: $showFocusDetail) {
+            WorkoutFocusDetailView(allSessions: recentSessions)
+        }
     }
     
     private var lastWorkoutView: some View {
@@ -315,7 +378,12 @@ struct DashboardView: View {
                 Text("Last Session").font(.headline)
                 Spacer()
                 NavigationLink(destination: HistoryView(container: container)) {
-                    Text("History >").font(.subheadline).foregroundStyle(.blue)
+                    HStack(spacing: 2) {
+                        Text("History")
+                        Image(systemName: "chevron.right").font(.caption2.bold())
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(Color.accentColor)
                 }
             }
             .padding(.horizontal)
@@ -324,6 +392,7 @@ struct DashboardView: View {
                 NavigationLink(destination: WorkoutDetailView(session: last)) {
                     LastWorkoutHero(session: last)
                 }
+                .buttonStyle(BouncyButtonStyle())
             } else {
                 ContentUnavailableView("Start your journey", systemImage: "figure.run")
             }
@@ -332,6 +401,53 @@ struct DashboardView: View {
     }
 }
 
+// MARK: - Chart Pager Control
+// Chevron paging for the swipeable chart cards. The page dots are hidden on the
+// TabViews, so without this there is no visible hint that more pages exist.
+struct ChartPagerControl: View {
+    @Binding var page: Int
+    let labels: [String]
+
+    private var clampedPage: Int { min(max(page, 0), labels.count - 1) }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                withAnimation { page = clampedPage - 1 }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.caption.bold())
+                    .padding(6)
+                    .contentShape(Rectangle())
+            }
+            .disabled(clampedPage <= 0)
+            .accessibilityLabel("Previous period")
+
+            Text(labels[clampedPage])
+                .font(.caption).bold()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(minWidth: 80)
+
+            Button {
+                withAnimation { page = clampedPage + 1 }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .padding(6)
+                    .contentShape(Rectangle())
+            }
+            .disabled(clampedPage >= labels.count - 1)
+            .accessibilityLabel("Next period")
+        }
+        .foregroundStyle(Color.accentColor)
+    }
+}
+
+// (AppSettingsView remains unchanged from your code)
+// ...
+
+// (AppSettingsView struct remains unchanged)
 struct AppSettingsView: View {
     @AppStorage("userTheme") private var userTheme: AppTheme = .light
     @AppStorage("unitSystem") private var unitSystem: UnitSystem = .imperial
@@ -340,8 +456,19 @@ struct AppSettingsView: View {
     @AppStorage("countdownTicksEnabled") private var countdownTicksEnabled: Bool = false
     
     // API Key State
+    @AppStorage("aiProvider") private var aiProviderRaw: String = AIProvider.gemini.rawValue
+    @AppStorage("openRouterModel") private var openRouterModel: String = ""
     @State private var apiKey: String = ""
     @State private var isKeySaved: Bool = false
+
+    private var selectedProvider: AIProvider {
+        AIProvider(rawValue: aiProviderRaw) ?? .gemini
+    }
+
+    private func refreshKeyStatus() {
+        let saved = KeychainManager.shared.retrieveKey(for: selectedProvider)
+        isKeySaved = !(saved ?? "").isEmpty
+    }
     
     @Query(
         filter: #Predicate<WorkoutSession> { $0.isCompleted == true },
@@ -358,23 +485,44 @@ struct AppSettingsView: View {
             Form {
                 // MARK: - AI Configuration
                 Section {
-                    SecureField("Enter Gemini API Key", text: $apiKey)
+                    Picker("Provider", selection: $aiProviderRaw) {
+                        ForEach(AIProvider.allCases) { provider in
+                            Text(provider.label).tag(provider.rawValue)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    // OpenRouter routes to any model — let the user pick the slug
+                    if selectedProvider == .openrouter {
+                        TextField("Model (e.g. \(OpenRouterAPIClient.defaultModel))", text: $openRouterModel)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .font(.callout.monospaced())
+                    }
+
+                    SecureField(selectedProvider.keyPlaceholder, text: $apiKey)
                         .textContentType(.password)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                    
+
                     if isKeySaved {
                         HStack {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                            Text("API Key Active")
+                            Text("\(selectedProvider.shortLabel) API Key Active")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Remove", role: .destructive) {
+                                KeychainManager.shared.deleteKey(for: selectedProvider)
+                                isKeySaved = false
+                            }
+                            .font(.caption)
                         }
                     }
-                    
+
                     Button(isKeySaved ? "Update Key" : "Save Key") {
                         if !apiKey.isEmpty {
-                            KeychainManager.shared.save(key: apiKey)
+                            KeychainManager.shared.save(key: apiKey, for: selectedProvider)
                             isKeySaved = true
                             apiKey = "" // Clear text field for security
                         }
@@ -383,7 +531,15 @@ struct AppSettingsView: View {
                 } header: {
                     Text("AI Coach Configuration")
                 } footer: {
-                    Text("Your API Key is stored securely in the device Keychain.")
+                    if selectedProvider == .openrouter {
+                        Text("Each provider has its own key, stored securely in the device Keychain. \(selectedProvider.keyHelpText). Leave the model blank to let OpenRouter pick automatically, or enter any slug from openrouter.ai/models.")
+                    } else {
+                        Text("Each provider has its own key, stored securely in the device Keychain. \(selectedProvider.keyHelpText).")
+                    }
+                }
+                .onChange(of: aiProviderRaw) { _, _ in
+                    apiKey = ""
+                    refreshKeyStatus()
                 }
                 
                 // MARK: - Appearance
@@ -464,10 +620,7 @@ struct AppSettingsView: View {
                 Button("Done") { dismiss() }
             }
             .onAppear {
-                // Check if key exists on load
-                if let saved = KeychainManager.shared.retrieveKey(), !saved.isEmpty {
-                    isKeySaved = true
-                }
+                refreshKeyStatus()
             }
         }
     }

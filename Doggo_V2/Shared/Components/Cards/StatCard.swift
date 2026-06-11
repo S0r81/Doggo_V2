@@ -24,8 +24,8 @@ struct StatCard: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
-        .background(Color(uiColor: .secondarySystemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 2)
+        .cardSurface(cornerRadius: 12, shadowed: true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title): \(value)")
     }
 }

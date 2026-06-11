@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		15E229542F350B79005FAD06 /* Secrets.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 15E229532F350B79005FAD06 /* Secrets.xcconfig */; };
+		922AAB172FDA754100F7B8E6 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 922AAB162FDA754100F7B8E6 /* WidgetKit.framework */; };
+		922AAB192FDA754100F7B8E6 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 922AAB182FDA754100F7B8E6 /* SwiftUI.framework */; };
+		922AAB282FDA754300F7B8E6 /* DoggoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 922AAB142FDA754100F7B8E6 /* DoggoWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -25,18 +27,77 @@
 			remoteGlobalIDString = 15E227512F33C522005FAD06;
 			remoteInfo = Doggo_V2;
 		};
+		922AAB262FDA754300F7B8E6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15E2274A2F33C522005FAD06 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 922AAB132FDA754100F7B8E6;
+			remoteInfo = DoggoWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		922AAB292FDA754300F7B8E6 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				922AAB282FDA754300F7B8E6 /* DoggoWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		15E227522F33C522005FAD06 /* Doggo_V2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doggo_V2.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E227612F33C524005FAD06 /* Doggo_V2Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Doggo_V2Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E2276B2F33C524005FAD06 /* Doggo_V2UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Doggo_V2UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E229532F350B79005FAD06 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Secrets.xcconfig; path = Doggo_V2/Core/Data/Network/AIService/Secrets.xcconfig; sourceTree = "<group>"; };
+		922AAB142FDA754100F7B8E6 /* DoggoWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DoggoWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		922AAB162FDA754100F7B8E6 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		922AAB182FDA754100F7B8E6 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		15E229AA2F350B79005FAD06 /* Exceptions for "Doggo_V2" folder in "Doggo_V2" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/Data/Network/AIService/Secrets.xcconfig,
+			);
+			target = 15E227512F33C522005FAD06 /* Doggo_V2 */;
+		};
+		922AAB2D2FDA754300F7B8E6 /* Exceptions for "DoggoWidget" folder in "DoggoWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 922AAB132FDA754100F7B8E6 /* DoggoWidgetExtension */;
+		};
+		922AAB392FDA770400F7B8E6 /* Exceptions for "Doggo_V2" folder in "DoggoWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/Common/Utilities/DoggoActivityAttributes.swift,
+			);
+			target = 922AAB132FDA754100F7B8E6 /* DoggoWidgetExtension */;
+		};
+		922AAB3B2FDA77E500F7B8E6 /* Exceptions for "DoggoWidget" folder in "Doggo_V2" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				DoggoWidget.swift,
+			);
+			target = 15E227512F33C522005FAD06 /* Doggo_V2 */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		15E227542F33C522005FAD06 /* Doggo_V2 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				15E229AA2F350B79005FAD06 /* Exceptions for "Doggo_V2" folder in "Doggo_V2" target */,
+				922AAB392FDA770400F7B8E6 /* Exceptions for "Doggo_V2" folder in "DoggoWidgetExtension" target */,
+			);
 			path = Doggo_V2;
 			sourceTree = "<group>";
 		};
@@ -48,6 +109,15 @@
 		15E2276E2F33C524005FAD06 /* Doggo_V2UITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Doggo_V2UITests;
+			sourceTree = "<group>";
+		};
+		922AAB1A2FDA754100F7B8E6 /* DoggoWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				922AAB3B2FDA77E500F7B8E6 /* Exceptions for "DoggoWidget" folder in "Doggo_V2" target */,
+				922AAB2D2FDA754300F7B8E6 /* Exceptions for "DoggoWidget" folder in "DoggoWidgetExtension" target */,
+			);
+			path = DoggoWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -74,6 +144,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		922AAB112FDA754100F7B8E6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				922AAB192FDA754100F7B8E6 /* SwiftUI.framework in Frameworks */,
+				922AAB172FDA754100F7B8E6 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -84,6 +163,8 @@
 				15E227542F33C522005FAD06 /* Doggo_V2 */,
 				15E227642F33C524005FAD06 /* Doggo_V2Tests */,
 				15E2276E2F33C524005FAD06 /* Doggo_V2UITests */,
+				922AAB1A2FDA754100F7B8E6 /* DoggoWidget */,
+				922AAB152FDA754100F7B8E6 /* Frameworks */,
 				15E227532F33C522005FAD06 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -94,8 +175,18 @@
 				15E227522F33C522005FAD06 /* Doggo_V2.app */,
 				15E227612F33C524005FAD06 /* Doggo_V2Tests.xctest */,
 				15E2276B2F33C524005FAD06 /* Doggo_V2UITests.xctest */,
+				922AAB142FDA754100F7B8E6 /* DoggoWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		922AAB152FDA754100F7B8E6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				922AAB162FDA754100F7B8E6 /* WidgetKit.framework */,
+				922AAB182FDA754100F7B8E6 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -108,10 +199,12 @@
 				15E2274E2F33C522005FAD06 /* Sources */,
 				15E2274F2F33C522005FAD06 /* Frameworks */,
 				15E227502F33C522005FAD06 /* Resources */,
+				922AAB292FDA754300F7B8E6 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				922AAB272FDA754300F7B8E6 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				15E227542F33C522005FAD06 /* Doggo_V2 */,
@@ -169,6 +262,28 @@
 			productReference = 15E2276B2F33C524005FAD06 /* Doggo_V2UITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		922AAB132FDA754100F7B8E6 /* DoggoWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 922AAB2C2FDA754300F7B8E6 /* Build configuration list for PBXNativeTarget "DoggoWidgetExtension" */;
+			buildPhases = (
+				922AAB102FDA754100F7B8E6 /* Sources */,
+				922AAB112FDA754100F7B8E6 /* Frameworks */,
+				922AAB122FDA754100F7B8E6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				922AAB1A2FDA754100F7B8E6 /* DoggoWidget */,
+			);
+			name = DoggoWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = DoggoWidgetExtension;
+			productReference = 922AAB142FDA754100F7B8E6 /* DoggoWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -176,7 +291,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2620;
+				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					15E227512F33C522005FAD06 = {
@@ -189,6 +304,9 @@
 					15E2276A2F33C524005FAD06 = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = 15E227512F33C522005FAD06;
+					};
+					922AAB132FDA754100F7B8E6 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -209,6 +327,7 @@
 				15E227512F33C522005FAD06 /* Doggo_V2 */,
 				15E227602F33C524005FAD06 /* Doggo_V2Tests */,
 				15E2276A2F33C524005FAD06 /* Doggo_V2UITests */,
+				922AAB132FDA754100F7B8E6 /* DoggoWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -218,7 +337,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				15E229542F350B79005FAD06 /* Secrets.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,6 +348,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		15E227692F33C524005FAD06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		922AAB122FDA754100F7B8E6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -260,6 +385,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		922AAB102FDA754100F7B8E6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -272,6 +404,11 @@
 			isa = PBXTargetDependency;
 			target = 15E227512F33C522005FAD06 /* Doggo_V2 */;
 			targetProxy = 15E2276C2F33C524005FAD06 /* PBXContainerItemProxy */;
+		};
+		922AAB272FDA754300F7B8E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 922AAB132FDA754100F7B8E6 /* DoggoWidgetExtension */;
+			targetProxy = 922AAB262FDA754300F7B8E6 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -551,6 +688,66 @@
 			};
 			name = Release;
 		};
+		922AAB2A2FDA754300F7B8E6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 825JPA884M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DoggoWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DoggoWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.guavi.Doggo-V2.DoggoWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		922AAB2B2FDA754300F7B8E6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 825JPA884M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DoggoWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DoggoWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.guavi.Doggo-V2.DoggoWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -586,6 +783,15 @@
 			buildConfigurations = (
 				15E2277C2F33C524005FAD06 /* Debug */,
 				15E2277D2F33C524005FAD06 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		922AAB2C2FDA754300F7B8E6 /* Build configuration list for PBXNativeTarget "DoggoWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				922AAB2A2FDA754300F7B8E6 /* Debug */,
+				922AAB2B2FDA754300F7B8E6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

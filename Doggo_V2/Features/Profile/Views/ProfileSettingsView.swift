@@ -15,6 +15,8 @@ struct ProfileSettingsView: View {
     @State private var weightLbs: Int = 150
     @State private var heightInches: Int = 70
     
+    @AppStorage("useKeypadForSets") private var useKeypadForSets = false
+    
     let goals = ["Build Muscle", "Lose Fat", "Strength", "Endurance", "General Health"]
     let levels = ["Beginner", "Intermediate", "Advanced"]
     let activities = ["Sedentary", "Lightly Active", "Active", "Very Active (Athlete)"]
@@ -90,6 +92,13 @@ struct ProfileSettingsView: View {
                             Text(currentSplit.cons).font(.caption)
                         }
                     }.padding(.vertical, 8)
+                }
+                
+                // NEW: App Preferences
+                Section(header: Text("App Preferences")) {
+                    Toggle(isOn: $useKeypadForSets) {
+                        Label("Use Keypad for Sets", systemImage: "number.square")
+                    }
                 }
                 
                 // Physical Stats

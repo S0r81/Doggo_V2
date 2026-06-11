@@ -20,22 +20,23 @@ final class AppContainer {
     // MARK: - Repositories
     
     lazy var workoutRepository: WorkoutRepositoryProtocol = {
-        WorkoutRepository(context: modelContext)
+        WorkoutRepository(modelContainer: modelContext.container)
     }()
     
     lazy var routineRepository: RoutineRepositoryProtocol = {
-        RoutineRepository(context: modelContext)
+        RoutineRepository(modelContainer: modelContext.container)
     }()
     
     lazy var exerciseRepository: ExerciseRepositoryProtocol = {
-        ExerciseRepository(context: modelContext)
+        ExerciseRepository(modelContainer: modelContext.container)
     }()
     
     // MARK: - Services
-    
-    lazy var geminiClient: GeminiAPIClient = {
-        // Client now handles its own key retrieval from Keychain
-        return GeminiAPIClient()
+
+    /// Routes each request to the AI provider selected in Settings
+    /// (Gemini / Claude / GPT), each with its own Keychain key.
+    lazy var aiClient: AIClientProtocol = {
+        AIClientRouter()
     }()
     
     lazy var hapticManager: HapticManager = {

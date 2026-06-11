@@ -10,8 +10,8 @@ import SwiftData
 
 struct OnboardingView: View {
     @Environment(\.modelContext) var modelContext
-    // We use a binding to tell the main app "We are done!"
-    @Binding var isOnboardingComplete: Bool
+    // Bound to RootView's `isOnboarding` flag — set to false when the user finishes.
+    @Binding var isOnboarding: Bool
     
     // Form State
     @State private var step = 0
@@ -143,7 +143,7 @@ struct OnboardingView: View {
         )
         
         modelContext.insert(profile)
-        isOnboardingComplete = false
+        isOnboarding = false
     }
 }
 

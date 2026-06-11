@@ -162,7 +162,7 @@ struct RoutineCreationView: View {
         Task {
             do {
                 // 1. Get Client
-                let apiClient = container.geminiClient
+                let apiClient = container.aiClient
                 
                 // 2. Build Prompt
                 let prompt = GeminiPromptBuilder.buildRoutineContentPrompt(
@@ -307,7 +307,7 @@ struct RoutineItemRow: View {
             VStack(alignment: .leading) {
                 Text(item.exercise?.name ?? "Unknown").font(.headline)
                 HStack {
-                    Text("\(item.templateSets.count) sets")
+                    Text(repSummary(for: item))
                     if item.supersetID != nil {
                         Text("• Superset").foregroundStyle(.pink).fontWeight(.bold)
                     }
@@ -392,30 +392,53 @@ struct SetRowConfig: View {
 }
 
 // Helper: Selection Sheet
+// Uses the same ExerciseRow + filter chips as the rest of the app so the two
+// exercise pickers look and behave identically.
 struct ExerciseSelectionSheet: View {
     @Environment(\.dismiss) var dismiss
-    @Query(sort: \Exercise.name) var allExercises: [Exercise]
+    @Query var allExercises: [Exercise]
     var onSelect: (Exercise) -> Void
+
+    @State private var viewModel = ExerciseListViewModel()
     @State private var searchText = ""
-    
+    @State private var selectedFilter: String?
+
     var groupedExercises: [String: [Exercise]] {
-        let filtered = allExercises.filter { searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText) }
-        return Dictionary(grouping: filtered, by: { $0.muscleGroup })
+        viewModel.groupExercises(allExercises, searchText: searchText, filter: selectedFilter)
     }
-    
+
     var muscleGroups: [String] { groupedExercises.keys.sorted() }
-    
+
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(muscleGroups, id: \.self) { group in
-                    Section(header: Text(group)) {
-                        ForEach(groupedExercises[group] ?? []) { exercise in
-                            Button(action: { onSelect(exercise); dismiss() }) {
-                                HStack {
-                                    Text(exercise.name).foregroundStyle(.primary)
-                                    Spacer()
-                                    if exercise.type == "Cardio" { Image(systemName: "figure.run").foregroundStyle(.blue) }
+            VStack(spacing: 0) {
+                FilterChipRow(
+                    selection: $selectedFilter,
+                    muscleGroups: viewModel.muscleGroupOptions(from: allExercises)
+                )
+                List {
+                    if muscleGroups.isEmpty {
+                        if selectedFilter == "Favorites" && searchText.isEmpty {
+                            ContentUnavailableView(
+                                "No Favorites Yet",
+                                systemImage: "star",
+                                description: Text("Swipe right on any exercise in the library to add favorites.")
+                            )
+                            .listRowBackground(Color.clear)
+                        } else {
+                            ContentUnavailableView(
+                                "No Matches",
+                                systemImage: "magnifyingglass",
+                                description: Text("Try a different search or filter.")
+                            )
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+                    ForEach(muscleGroups, id: \.self) { group in
+                        Section(header: Text("\(group) · \(groupedExercises[group]?.count ?? 0)")) {
+                            ForEach(groupedExercises[group] ?? []) { exercise in
+                                Button(action: { onSelect(exercise); dismiss() }) {
+                                    ExerciseRow(exercise: exercise)
                                 }
                             }
                         }

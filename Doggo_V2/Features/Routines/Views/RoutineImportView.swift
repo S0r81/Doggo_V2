@@ -241,7 +241,7 @@ struct RoutineImportView: View {
         
         Task {
             do {
-                let apiClient = container.geminiClient
+                let apiClient = container.aiClient
                 let prompt = GeminiPromptBuilder.buildImportPrompt(text: text, validExercises: allExercises)
                 let response = try await apiClient.sendRequest(prompt: prompt)
                 var result = try GeminiResponseParser.parseImport(response)

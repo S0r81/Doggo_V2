@@ -49,5 +49,15 @@ extension Color {
             return Color(uiColor: .systemGroupedBackground) // Standard iOS Grey
         }
     }
+
+    // 3. The Card Surface (Cards, Chart containers, Badges)
+    static func cardSurface(for theme: AppTheme) -> Color {
+        switch theme {
+        case .nordic:
+            return Color(red: 59/255, green: 66/255, blue: 82/255) // #3B4252 (Polar Night, lighter)
+        case .dark, .light:
+            return Color(uiColor: .secondarySystemBackground)
+        }
+    }
 }
 

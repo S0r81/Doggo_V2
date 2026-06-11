@@ -166,7 +166,14 @@ class DashboardViewModel {
                 }
             }
             
-            let label = pageIndex == 0 ? "Last 4 Weeks" : "History"
+            let label: String
+            if pageIndex == 0 {
+                label = "Last 4 Weeks"
+            } else if let first = weeks.first, let last = weeks.last {
+                label = "\(first.weekLabel) – \(last.weekLabel)"
+            } else {
+                label = "History"
+            }
             pages.append(VolumePage(label: label, weeks: weeks))
         }
         

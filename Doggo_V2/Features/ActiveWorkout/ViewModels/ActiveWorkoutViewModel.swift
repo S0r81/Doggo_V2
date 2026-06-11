@@ -31,17 +31,23 @@ class ActiveWorkoutViewModel {
     
     // MARK: - Start & Resume
     
+    @MainActor
     func checkForActiveSession() async {
         guard let context = modelContext else { return }
-        
+
+        // Fetch on the MAIN context. The repository is a @ModelActor with its own
+        // background context — resuming one of its instances and then linking
+        // main-context sets to it crashes with a cross-context relationship error.
+        let descriptor = FetchDescriptor<WorkoutSession>(
+            predicate: #Predicate<WorkoutSession> { $0.isCompleted == false },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+
         do {
-            let activeSessions = try await workoutRepository.fetchActiveSessions()
+            let activeSessions = try context.fetch(descriptor)
             if let existingSession = activeSessions.first {
                 if let current = currentSession, current.id == existingSession.id { return }
-                
-                await MainActor.run {
-                    resumeSession(existingSession)
-                }
+                resumeSession(existingSession)
             }
         } catch {
             print("Error checking for active session: \(error)")
@@ -193,11 +199,22 @@ class ActiveWorkoutViewModel {
         modelContext?.delete(set)
     }
     
+    /// Deletes the current session entirely (used when nothing was logged).
+    func discardWorkout() {
+        guard let session = currentSession, let context = modelContext else { return }
+        stopWorkoutTimer()
+        currentSession = nil
+        context.delete(session) // cascade removes its sets
+        try? context.save()
+    }
+
     func finishWorkout() async {
         guard let session = currentSession else { return }
         session.isCompleted = true
         session.duration = TimeInterval(elapsedSeconds)
-        do { try await workoutRepository.save(session) } catch { print("Error: \(error)") }
+        // Save on the session's own (main) context — passing a main-context model
+        // into the repository actor inserts it into a different context.
+        do { try modelContext?.save() } catch { print("Error: \(error)") }
         stopWorkoutTimer()
         currentSession = nil
     }

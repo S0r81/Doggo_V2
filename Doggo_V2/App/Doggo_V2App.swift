@@ -57,9 +57,10 @@ struct RootView: View {
     var body: some View {
         Group {
             if isOnboarding {
-                OnboardingView(isOnboardingComplete: $isOnboarding)
+                OnboardingView(isOnboarding: $isOnboarding)
             } else if let container {
                 ContentView(container: container)
+                    .environment(\.appContainer, container)
             } else {
                 ProgressView("Initializing...")
             }

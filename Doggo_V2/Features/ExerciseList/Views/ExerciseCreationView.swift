@@ -11,16 +11,20 @@ import SwiftData
 struct ExerciseCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
+
+    /// When set, the form edits this exercise in place instead of creating one.
+    var exerciseToEdit: Exercise? = nil
+
     @State private var name: String = ""
     @State private var selectedMuscle: String = "Chest"
     @State private var selectedType: String = "Strength"
-    
+
     // NEW: Cardio Tracking Preference
     @State private var selectedCardioType: String = "Distance"
-    
-    // Expanded list for better categorization
-    let muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio", "Full Body"]
+
+    // Expanded list for better categorization (@State so an edited exercise's
+    // group — e.g. AI-created "Other" — can be appended when it's not listed)
+    @State private var muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio", "Full Body"]
     let types = ["Strength", "Cardio", "Olympic", "Accessory"]
     let cardioTypes = ["Distance", "Steps", "Time"] // Maps to the logic we built
     
@@ -62,8 +66,19 @@ struct ExerciseCreationView: View {
                     }
                 }
             }
-            .navigationTitle("New Exercise")
+            .navigationTitle(exerciseToEdit == nil ? "New Exercise" : "Edit Exercise")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if let exercise = exerciseToEdit {
+                    name = exercise.name
+                    selectedType = exercise.type
+                    selectedCardioType = exercise.cardioType
+                    if !muscleGroups.contains(exercise.muscleGroup) {
+                        muscleGroups.append(exercise.muscleGroup)
+                    }
+                    selectedMuscle = exercise.muscleGroup
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -83,14 +98,23 @@ struct ExerciseCreationView: View {
     }
     
     private func saveExercise() {
-        // Updated to include cardioType
-        let newExercise = Exercise(
-            name: name,
-            type: selectedType,
-            muscleGroup: selectedMuscle,
-            cardioType: selectedType == "Cardio" ? selectedCardioType : "Distance"
-        )
-        modelContext.insert(newExercise)
+        if let exercise = exerciseToEdit {
+            // Update in place — all logged history stays attached
+            exercise.name = name
+            exercise.type = selectedType
+            exercise.muscleGroup = selectedMuscle
+            exercise.cardioType = selectedType == "Cardio" ? selectedCardioType : "Distance"
+            try? modelContext.save()
+        } else {
+            let newExercise = Exercise(
+                name: name,
+                type: selectedType,
+                muscleGroup: selectedMuscle,
+                cardioType: selectedType == "Cardio" ? selectedCardioType : "Distance",
+                isCustom: true // <--- EXPLICITLY set to TRUE
+            )
+            modelContext.insert(newExercise)
+        }
         dismiss()
     }
 }

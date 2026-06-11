@@ -10,7 +10,9 @@ import SwiftUI
 struct CardioSetRowView: View {
     @Bindable var set: WorkoutSet
     var index: Int
-    
+    // Keyboard focus owned by ActiveWorkoutView (shared "Done" toolbar).
+    var focus: FocusState<WorkoutSetField?>.Binding
+
     // FIX: Explicitly define the body of the computed property
     private var cardioMode: String {
         return set.exercise?.cardioType ?? "Distance"
@@ -35,11 +37,12 @@ struct CardioSetRowView: View {
                             .foregroundStyle(.secondary)
                         
                         TextField("0", value: $set.distance, format: .number)
+                            .focused(focus, equals: .distance(set.id))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.center)
                             .font(.headline)
                             .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.1))
+                            .background(Color.accentColor.opacity(0.1))
                             .cornerRadius(8)
                             .overlay(
                                 Menu {
@@ -51,7 +54,7 @@ struct CardioSetRowView: View {
                                         .foregroundStyle(.secondary)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 4)
-                                        .background(Color.white.opacity(0.5))
+                                        .background(.thinMaterial)
                                         .cornerRadius(4)
                                 }
                                 .padding(.trailing, 8),
@@ -66,6 +69,7 @@ struct CardioSetRowView: View {
                             .foregroundStyle(.secondary)
                         
                         TextField("0", value: $set.steps, format: .number)
+                            .focused(focus, equals: .steps(set.id))
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.center)
                             .font(.headline)
@@ -89,6 +93,7 @@ struct CardioSetRowView: View {
                         .foregroundStyle(.secondary)
                     
                     TextField("0", value: $set.duration, format: .number)
+                        .focused(focus, equals: .time(set.id))
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.center)
                         .font(.headline)
@@ -118,6 +123,7 @@ struct CardioSetRowView: View {
                     .foregroundStyle(set.isCompleted ? .green : .gray.opacity(0.3))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(set.isCompleted ? "Interval \(index) completed" : "Mark interval \(index) complete")
         }
         .padding(.vertical, 4)
     }

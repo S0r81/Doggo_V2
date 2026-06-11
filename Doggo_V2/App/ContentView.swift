@@ -11,6 +11,9 @@ struct ContentView: View {
     
     @State private var selectedTab = 0
     
+    // MARK: - THEME FIX 1: Listen to the setting
+    @AppStorage("userTheme") private var userTheme: AppTheme = .light
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             
@@ -35,6 +38,12 @@ struct ContentView: View {
                 }
                 .tag(2)
         }
-        .tint(.blue)
+        // MARK: - THEME FIX 2: Apply Global Accent
+        // Instead of .tint(.blue), we ask the theme for the color
+        .tint(Color.accent(for: userTheme))
+        
+        // MARK: - THEME FIX 3: Force Dark Mode for Nordic
+        // Nordic is a dark theme. If we don't force .dark, iOS renders black text on dark grey background (unreadable).
+        .preferredColorScheme(userTheme == .light ? .light : .dark)
     }
 }
