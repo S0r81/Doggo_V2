@@ -16,18 +16,22 @@ func estimatedMinutes(for routine: Routine, restSeconds: Int) -> Int {
     return max(5, Int((seconds / 60.0).rounded()))
 }
 
-/// "3 × 10" when every set targets the same reps, otherwise "10 / 8 / 6 reps".
+/// "3 × 10" when every set targets the same reps ("3 × 10 @ 185" with a
+/// uniform target weight), otherwise "10 / 8 / 6 reps".
 func repSummary(for item: RoutineItem) -> String {
-    let reps = item.templateSets
-        .sorted { $0.orderIndex < $1.orderIndex }
-        .map(\.targetReps)
+    let templates = item.templateSets.sorted { $0.orderIndex < $1.orderIndex }
+    let reps = templates.map(\.targetReps)
 
     guard !reps.isEmpty else { return "No sets" }
 
+    // Uniform target weight suffix, if one is set
+    let weights = Set(templates.compactMap(\.targetWeight))
+    let weightSuffix = weights.count == 1 ? " @ \(PlateCalculator.format(weights.first!))" : ""
+
     if Set(reps).count == 1 {
-        return "\(reps.count) × \(reps[0])"
+        return "\(reps.count) × \(reps[0])\(weightSuffix)"
     }
-    return reps.map(String.init).joined(separator: " / ") + " reps"
+    return reps.map(String.init).joined(separator: " / ") + " reps" + weightSuffix
 }
 
 let weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]

@@ -56,6 +56,12 @@ struct ActiveWorkoutView: View {
     // MARK: - Plate Calculator State
     @State private var showPlateCalculator = false
     @State private var plateCalculatorTarget: Double = 0
+
+    // MARK: - PR Celebration State
+    @State private var prMoment: PRMoment?
+
+    // MARK: - Progression Review State
+    @State private var progressionProposals: [ProgressionProposal] = []
     
     enum DisplayUnit: Identifiable {
         case single(Exercise)
@@ -145,11 +151,26 @@ struct ActiveWorkoutView: View {
             Button("Finish & Save") {
                 HapticManager.shared.notification(type: .success)
                 timerManager.stopTimer()
-                Task { await viewModel?.finishWorkout() }
+                // Evaluate progression BEFORE the session is detached
+                let proposals = viewModel?.currentSession.map { ProgressionEngine.review(session: $0) } ?? []
+                Task {
+                    await viewModel?.finishWorkout()
+                    if !proposals.isEmpty {
+                        await MainActor.run { progressionProposals = proposals }
+                    }
+                }
             }
             Button("Keep Logging", role: .cancel) {}
         } message: {
             Text(finishSummary)
+        }
+        // MARK: - Progression Review
+        .sheet(isPresented: Binding(
+            get: { !progressionProposals.isEmpty },
+            set: { if !$0 { progressionProposals = [] } }
+        )) {
+            ProgressionReviewSheet(proposals: progressionProposals)
+                .presentationDetents([.medium, .large])
         }
         // MARK: - Empty Workout Guard
         .confirmationDialog("Nothing Logged Yet", isPresented: $showEmptyFinishOptions, titleVisibility: .visible) {
@@ -305,6 +326,48 @@ struct ActiveWorkoutView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: timerManager.isActive)
+        // MARK: - PR Celebration
+        .overlay {
+            if let pr = prMoment {
+                PRCelebrationView(moment: pr)
+                    .transition(.scale(scale: 0.7).combined(with: .opacity))
+            }
+        }
+    }
+
+    /// Fires the celebration when a completed set beats the all-time best
+    /// for that exercise (first-ever entries don't count — no history yet).
+    private func checkForPR(set: WorkoutSet, exercise: Exercise) {
+        guard !exercise.isCardio, set.weight > 0 else { return }
+
+        let exerciseID = exercise.id
+        let sessionID = set.workoutSession?.id
+        var descriptor = FetchDescriptor<WorkoutSet>(
+            predicate: #Predicate<WorkoutSet> {
+                $0.exercise?.id == exerciseID &&
+                $0.isCompleted == true &&
+                $0.workoutSession?.id != sessionID
+            },
+            sortBy: [SortDescriptor(\WorkoutSet.weight, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+
+        guard let previousBest = try? modelContext.fetch(descriptor).first else { return }
+
+        // Compare lbs-normalized so a unit switch can't fake a PR
+        let newWeight = StrengthMath.inPounds(set.weight, unit: set.unit)
+        let oldWeight = StrengthMath.inPounds(previousBest.weight, unit: previousBest.unit)
+        guard newWeight > oldWeight else { return }
+
+        HapticManager.shared.notification(type: .success)
+        withAnimation(.bouncy) {
+            prMoment = PRMoment(exerciseName: exercise.name, weight: set.weight, unit: set.unit)
+        }
+
+        Task {
+            try? await Task.sleep(for: .seconds(2.6))
+            withAnimation(.smooth) { prMoment = nil }
+        }
     }
 
     /// Today's routine from the user's weekly schedule, if one is assigned.
@@ -465,6 +528,7 @@ struct ActiveWorkoutView: View {
                                 onComplete: {
                                     viewModel.completeSet(set)
                                     withAnimation { timerManager.startTimer(duration: defaultRestSeconds) }
+                                    checkForPR(set: set, exercise: exercise)
                                 },
                                 focus: $focusedField
                             )

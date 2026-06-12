@@ -24,6 +24,7 @@ struct RoutineListView: View {
     @State private var showCreateExercise = false
     @State private var showGenerator = false
     @State private var showImportSheet = false
+    @State private var showPrograms = false
     
     var body: some View {
         NavigationStack {
@@ -46,7 +47,7 @@ struct RoutineListView: View {
                         selectedTab: $selectedTab,
                         container: container,
                         onCreateRoutine: { showCreateRoutine = true },
-                        onGenerateAI: { showGenerator = true }
+                        onBrowsePrograms: { showPrograms = true }
                     )
                     // Animation: Fade between views
                     .transition(.opacity.animation(.easeInOut))
@@ -75,6 +76,12 @@ struct RoutineListView: View {
                             }
                             .accessibilityLabel("Sort routines")
                         }
+
+                        // Programs
+                        Button(action: { showPrograms = true }) {
+                            Image(systemName: "books.vertical")
+                        }
+                        .accessibilityLabel("Browse programs")
 
                         // Import Button
                         Button(action: { showImportSheet = true }) {
@@ -117,6 +124,9 @@ struct RoutineListView: View {
             .sheet(isPresented: $showImportSheet) {
                 RoutineImportView(container: container)
             }
+            .sheet(isPresented: $showPrograms) {
+                ProgramBrowserView()
+            }
             // MARK: - THEME FIX (Main Background)
             .background(Color.background(for: userTheme))
         }
@@ -130,7 +140,7 @@ struct RoutineListContent: View {
     @Binding var selectedTab: Int
     let container: AppContainer
     var onCreateRoutine: () -> Void = {}
-    var onGenerateAI: () -> Void = {}
+    var onBrowsePrograms: () -> Void = {}
 
     // For "last performed" on rows and the active-workout guard on Start
     @Query(
@@ -192,11 +202,11 @@ struct RoutineListContent: View {
                 EmptyStateView(
                     icon: "list.bullet.clipboard",
                     title: "No Routines",
-                    message: "Build a workout routine yourself, or let the AI coach create one for you.",
-                    actionTitle: "Create Routine",
-                    action: onCreateRoutine,
-                    secondaryActionTitle: "✨ Generate with AI",
-                    secondaryAction: onGenerateAI
+                    message: "Install a proven training program, or build a routine from scratch.",
+                    actionTitle: "Browse Programs",
+                    action: onBrowsePrograms,
+                    secondaryActionTitle: "Create Your Own",
+                    secondaryAction: onCreateRoutine
                 )
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.clear)

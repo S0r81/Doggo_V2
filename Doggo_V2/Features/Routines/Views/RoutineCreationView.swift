@@ -382,9 +382,23 @@ struct SetConfigurationView: View {
 // MARK: - Helper Row for Binding
 struct SetRowConfig: View {
     @Bindable var set: RoutineSetTemplate
+    @AppStorage("unitSystem") private var unitSystem: UnitSystem = .imperial
+
     var body: some View {
         HStack {
             Text("Set \(set.orderIndex + 1)").foregroundStyle(.secondary).frame(width: 50, alignment: .leading)
+
+            // Target weight — the progression engine's anchor. Blank = ghost
+            // values drive the workout instead.
+            TextField("—", value: $set.targetWeight, format: .number)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 64)
+                .monospacedDigit()
+            Text(unitSystem.weightLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Spacer()
             Stepper("\(set.targetReps) Reps", value: $set.targetReps, in: 1...100).fixedSize()
         }

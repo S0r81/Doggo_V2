@@ -12,13 +12,19 @@ struct CoachView: View {
     
     @Environment(\.dismiss) var dismiss
     @Query var profiles: [UserProfile]
-    
+    @Query var routines: [Routine]
+
     @AppStorage("cachedCoachAdvice") private var cachedAdvice: String = ""
     @AppStorage("cachedCoachTimestamp") private var cachedTimestamp: Double = 0
-    
+
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var isCopied = false
+
+    // MARK: - Plan Tune-Up State
+    @State private var isTuning = false
+    @State private var tuneProposals: [ProgressionProposal] = []
+    @State private var tuneError: String?
     
     var body: some View {
         NavigationStack {
@@ -64,6 +70,35 @@ struct CoachView: View {
                                         }
                                     }
                             }
+
+                            // MARK: - AI Plan Tune-Up
+                            if !routines.isEmpty {
+                                Button {
+                                    tunePlan()
+                                } label: {
+                                    if isTuning {
+                                        HStack {
+                                            ProgressView().controlSize(.small)
+                                            Text("Reviewing your plan…")
+                                        }
+                                        .font(.subheadline.weight(.semibold))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, Spacing.sm)
+                                    } else {
+                                        Label("Tune My Plan", systemImage: "wand.and.stars")
+                                            .font(.subheadline.weight(.semibold))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, Spacing.sm)
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.purple)
+                                .disabled(isTuning || isLoading)
+
+                                Text("Proposes new target weights for your routines based on the last 4 weeks. You review every change before it applies.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         .padding()
                     }
@@ -97,6 +132,48 @@ struct CoachView: View {
         .onAppear {
             if cachedAdvice.isEmpty {
                 generateReport(force: false)
+            }
+        }
+        // MARK: - Plan Tune-Up Review
+        .sheet(isPresented: Binding(
+            get: { !tuneProposals.isEmpty },
+            set: { if !$0 { tuneProposals = [] } }
+        )) {
+            ProgressionReviewSheet(title: "AI Plan Tune-Up", proposals: tuneProposals)
+                .presentationDetents([.medium, .large])
+        }
+        .alert("Plan Tune-Up", isPresented: Binding(
+            get: { tuneError != nil },
+            set: { if !$0 { tuneError = nil } }
+        )) {
+            Button("OK", role: .cancel) { tuneError = nil }
+        } message: {
+            Text(tuneError ?? "")
+        }
+    }
+
+    private func tunePlan() {
+        isTuning = true
+        Task {
+            do {
+                let proposals = try await PlanTuner.proposals(
+                    routines: routines,
+                    sessions: sessions,
+                    client: container.aiClient
+                )
+                await MainActor.run {
+                    isTuning = false
+                    if proposals.isEmpty {
+                        tuneError = "Your plan already looks dialed in — no changes proposed."
+                    } else {
+                        tuneProposals = proposals
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isTuning = false
+                    tuneError = error.localizedDescription
+                }
             }
         }
     }

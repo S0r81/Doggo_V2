@@ -10,6 +10,11 @@ class RoutineItem {
     
     // NEW: Links items together. If multiple items share this ID, they are a Superset.
     var supersetID: UUID?
+
+    // Progression engine state: consecutive sessions where every target was
+    // hit (or missed). Reset when a target changes.
+    var successStreak: Int = 0
+    var failStreak: Int = 0
     
     @Relationship(deleteRule: .cascade, inverse: \RoutineSetTemplate.routineItem)
     var templateSets: [RoutineSetTemplate] = []

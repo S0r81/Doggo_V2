@@ -21,7 +21,9 @@ struct Doggo_V2App: App {
             RoutineItem.self,
             RoutineSetTemplate.self,
             AIGeneratedRoutine.self,
-            UserProfile.self
+            UserProfile.self,
+            BodyMeasurement.self,
+            CustomProgram.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

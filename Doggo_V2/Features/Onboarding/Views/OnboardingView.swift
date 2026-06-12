@@ -15,6 +15,7 @@ struct OnboardingView: View {
     
     // Form State
     @State private var step = 0
+    @State private var selectedProgramID: String?
     @State private var name = ""
     @State private var age = 25
     @State private var weight = 165 // lbs default
@@ -30,7 +31,7 @@ struct OnboardingView: View {
     var body: some View {
         VStack {
             // Progress Bar
-            ProgressView(value: Double(step), total: 3)
+            ProgressView(value: Double(step), total: 4)
                 .padding()
             
             TabView(selection: $step) {
@@ -100,20 +101,75 @@ struct OnboardingView: View {
                     }
                 }
                 .tag(2)
+
+                // STEP 3: PICK A PROGRAM (optional — Skip just finishes)
+                Form {
+                    Section {
+                        Text("Start with a proven plan — routines and a weekly schedule, ready on day one. You can change or remove it anytime.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } header: {
+                        Text("Pick your program")
+                    }
+
+                    Section {
+                        ForEach(Array(recommendedPrograms.enumerated()), id: \.element.id) { index, program in
+                            Button {
+                                withAnimation(.snappy) {
+                                    selectedProgramID = selectedProgramID == program.id ? nil : program.id
+                                }
+                            } label: {
+                                HStack(spacing: Spacing.md) {
+                                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                                        HStack(spacing: Spacing.xs) {
+                                            Text(program.name)
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.primary)
+                                            if index == 0 {
+                                                Text("FOR YOU")
+                                                    .font(.caption2).bold()
+                                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                                    .background(Color.accentColor.opacity(0.15))
+                                                    .foregroundStyle(Color.accentColor)
+                                                    .clipShape(Capsule())
+                                            }
+                                        }
+                                        Text("\(program.daysPerWeek) days/week · \(program.tagline)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: selectedProgramID == program.id ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(selectedProgramID == program.id ? Color.accentColor : Color.secondary.opacity(0.4))
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } footer: {
+                        Text("Skip to start with an empty slate — programs stay available on the Lift tab.")
+                    }
+                }
+                .tag(3)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            
+
             // Navigation Buttons
             HStack {
                 if step > 0 {
                     Button("Back") { withAnimation { step -= 1 } }
                         .padding()
                 }
-                
+
                 Spacer()
-                
-                Button(step == 2 ? "Finish" : "Next") {
-                    if step < 2 {
+
+                if step == 3 && selectedProgramID == nil {
+                    Button("Skip") { finishOnboarding() }
+                        .padding(.trailing, 4)
+                }
+
+                Button(step == 3 ? "Finish" : "Next") {
+                    if step < 3 {
                         withAnimation { step += 1 }
                     } else {
                         finishOnboarding()
@@ -126,12 +182,16 @@ struct OnboardingView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground))
     }
-    
+
+    private var recommendedPrograms: [ProgramDefinition] {
+        ProgramCatalog.recommended(experience: experience, goal: goal)
+    }
+
     func finishOnboarding() {
         // Convert Imperial to Metric for internal storage (optional, but cleaner)
         let weightKG = Double(weight) * 0.453592
         let heightCM = Double(height) * 2.54
-        
+
         let profile = UserProfile(
             name: name,
             age: age,
@@ -141,8 +201,16 @@ struct OnboardingView: View {
             fitnessGoal: goal,
             experienceLevel: experience
         )
-        
+
         modelContext.insert(profile)
+
+        // Install the chosen program (profile must exist first so the
+        // installer can write the weekly schedule)
+        if let programID = selectedProgramID,
+           let program = ProgramCatalog.all.first(where: { $0.id == programID }) {
+            ProgramInstaller.install(program, replaceSchedule: true, context: modelContext)
+        }
+
         isOnboarding = false
     }
 }

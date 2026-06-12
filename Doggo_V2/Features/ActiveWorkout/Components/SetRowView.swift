@@ -48,6 +48,28 @@ struct SetRowView: View {
         return sortedSets.last
     }
 
+    /// The progression target for this set (from the routine template), if any.
+    private var targetTemplate: RoutineSetTemplate? {
+        guard let templates = set.routineItem?.templateSets.sorted(by: { $0.orderIndex < $1.orderIndex }),
+              !templates.isEmpty else { return nil }
+        return templates[min(index - 1, templates.count - 1)]
+    }
+
+    /// Placeholder priority: progression target → last session's ghost.
+    private var weightPlaceholder: String {
+        if let target = targetTemplate?.targetWeight {
+            return "Target: \(PlateCalculator.format(target))"
+        }
+        return "Last: \(ghostValues.weight)"
+    }
+
+    private var repsPlaceholder: String {
+        if targetTemplate?.targetWeight != nil, let reps = targetTemplate?.targetReps {
+            return "Target: \(reps)"
+        }
+        return "Last: \(ghostValues.reps)"
+    }
+
     private func loadGhostValues() {
         guard lastSessionSets.isEmpty else { return }
 
@@ -96,7 +118,7 @@ struct SetRowView: View {
                 // was too cramped with five elements on small screens)
                 HStack(spacing: 0) {
                     if useKeypadForSets {
-                        TextField("Last: \(ghostValues.weight)", value: Binding(
+                        TextField(weightPlaceholder, value: Binding(
                             get: { set.weight == 0 ? nil : set.weight },
                             set: { set.weight = $0 ?? 0 }
                         ), format: .number)
@@ -114,7 +136,7 @@ struct SetRowView: View {
                         Button(action: { showWeightPicker = true }) {
                             if set.weight == 0 {
                                 // SHOW GHOST VALUE
-                                Text("Last: \(ghostValues.weight)")
+                                Text(weightPlaceholder)
                                     .font(.caption) // Smaller font for ghost
                                     .fontWeight(.bold)
                                     .italic()
@@ -153,7 +175,7 @@ struct SetRowView: View {
                 // 3. Reps Input with Ghost Value
                 if useKeypadForSets {
                     VStack(spacing: 2) {
-                        TextField("Last: \(ghostValues.reps)", value: Binding(
+                        TextField(repsPlaceholder, value: Binding(
                             get: { set.reps == 0 ? nil : set.reps },
                             set: { set.reps = $0 ?? 0 }
                         ), format: .number)
@@ -177,7 +199,7 @@ struct SetRowView: View {
                         VStack(spacing: 2) {
                             if set.reps == 0 {
                                 // SHOW GHOST VALUE
-                                Text("Last: \(ghostValues.reps)")
+                                Text(repsPlaceholder)
                                     .font(.caption)
                                     .fontWeight(.bold)
                                     .italic()
@@ -203,12 +225,16 @@ struct SetRowView: View {
                 // 4. Completion Checkbox
                 Button(action: {
                     HapticManager.shared.impact(style: .medium)
-                    // One-tap "same as last time": completing an untouched set
-                    // adopts the ghost values instead of logging 0 × 0.
-                    if !set.isCompleted, set.weight == 0, set.reps == 0,
-                       let ghost = ghostSet, ghost.weight > 0 || ghost.reps > 0 {
-                        set.weight = ghost.weight
-                        set.reps = ghost.reps
+                    // One-tap fill for an untouched set: the progression
+                    // target wins; otherwise adopt last session's ghost values.
+                    if !set.isCompleted, set.weight == 0, set.reps == 0 {
+                        if let target = targetTemplate, let targetWeight = target.targetWeight {
+                            set.weight = targetWeight
+                            set.reps = target.targetReps
+                        } else if let ghost = ghostSet, ghost.weight > 0 || ghost.reps > 0 {
+                            set.weight = ghost.weight
+                            set.reps = ghost.reps
+                        }
                     }
                     withAnimation(.snappy) { set.isCompleted.toggle() }
                     if set.isCompleted { onComplete() }

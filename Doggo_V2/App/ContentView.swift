@@ -37,6 +37,13 @@ struct ContentView: View {
                     Label("Workout", systemImage: "waveform.path.ecg")
                 }
                 .tag(2)
+
+            // Tab 3: Progress
+            ProgressTabView()
+                .tabItem {
+                    Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                .tag(3)
         }
         // MARK: - THEME FIX 2: Apply Global Accent
         // Instead of .tint(.blue), we ask the theme for the color

@@ -14,6 +14,8 @@ class Routine {
     var id: UUID
     var name: String
     var note: String
+    /// Set when this routine was installed from a bundled program.
+    var sourceProgram: String? = nil
     
     // Relationship: A routine has many ordered items
     // If we delete the routine, delete the items (but NOT the exercises themselves)
