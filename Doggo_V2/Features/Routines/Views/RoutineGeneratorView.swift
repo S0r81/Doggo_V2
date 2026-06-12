@@ -51,28 +51,27 @@ struct RoutineGeneratorView: View {
     }
     
     let container: AppContainer
-    
+
+    private var loadingSubtitle: String {
+        var parts: [String] = []
+        if let profile = profiles.first, profile.useCoachForRoutine, !cachedAdvice.isEmpty {
+            parts.append("Applying coach's strategy")
+        }
+        if includeCardio || selectedSplit == "Cardio" {
+            parts.append("Analyzing cardio history")
+        }
+        return parts.isEmpty ? "Tailored to your history and goals" : parts.joined(separator: " · ")
+    }
+
     var body: some View {
         NavigationStack {
             VStack {
                 if isGenerating {
-                    VStack(spacing: 20) {
-                        ProgressView().scaleEffect(1.5)
-                        Text("Constructing Routine...")
-                            .font(.headline)
-                        
-                        if let profile = profiles.first, profile.useCoachForRoutine, !cachedAdvice.isEmpty {
-                            HStack {
-                                Image(systemName: "sparkles")
-                                Text("Applying Coach's Strategy...")
-                            }
-                            .font(.caption).foregroundStyle(.purple)
-                        }
-                        
-                        if includeCardio || selectedSplit == "Cardio" {
-                             Text("Analyzing cardio history...").font(.caption).foregroundStyle(.teal)
-                        }
-                    }
+                    AILoadingView(
+                        title: "Constructing Routine…",
+                        subtitle: loadingSubtitle
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 else if generatedCandidates.isEmpty {
                     inputForm

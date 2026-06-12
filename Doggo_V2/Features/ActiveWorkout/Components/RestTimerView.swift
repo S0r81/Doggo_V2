@@ -29,6 +29,8 @@ struct RestTimerView: View {
                     .monospacedDigit()
                     .bold()
                     .font(.title2)
+                    .contentTransition(.numericText(countsDown: true))
+                    .animation(.snappy, value: seconds)
             }
             .foregroundStyle(.white)
             
@@ -89,16 +91,18 @@ struct RestTimerView: View {
         HapticManager.shared.impact(style: .medium)
         
         // Update visual state
-        withAnimation {
+        withAnimation(.snappy) {
             lastPresetUsed = duration
         }
-        
+
         // Call the preset callback
         onSetPreset(duration)
-        
-        // Reset visual indicator after 1 second
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            withAnimation {
+
+        // Reset the highlight after 1s — Task is structured concurrency,
+        // unlike the old asyncAfter which could fire against a stale view.
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            withAnimation(.snappy) {
                 lastPresetUsed = nil
             }
         }

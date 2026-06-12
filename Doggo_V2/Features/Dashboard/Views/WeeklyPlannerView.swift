@@ -23,6 +23,7 @@ struct WeeklyPlannerView: View {
     // MARK: - AI State
     @State private var isGenerating = false
     @State private var showAIAlert = false
+    @State private var generationTask: Task<Void, Never>?
     let container: AppContainer
     
     let daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -50,7 +51,7 @@ struct WeeklyPlannerView: View {
                             }) {
                                 Text("START NOW")
                                     .font(.headline.bold())
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.accentColor)
                                     .padding(.horizontal, 30)
                                     .padding(.vertical, 12)
                                     .background(Color.white)
@@ -59,7 +60,7 @@ struct WeeklyPlannerView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 24)
-                        .background(Color.blue.gradient)
+                        .background(Color.accentColor.gradient)
                     }
                     
                     // 2. THE WEEKLY GRID (Drop Targets)
@@ -118,17 +119,17 @@ struct WeeklyPlannerView: View {
                     .shadow(color: .black.opacity(0.05), radius: 5, y: -5)
                 }
                 
-                // 4. LOADING OVERLAY
+                // 4. LOADING OVERLAY (cancellable — never trap the user)
                 if isGenerating {
-                    Color.black.opacity(0.4).ignoresSafeArea()
-                    VStack(spacing: 20) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(.white)
-                        Text("AI is building your week...")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                    }
+                    AILoadingOverlay(
+                        title: "Building your week…",
+                        subtitle: "Balancing your split across the schedule",
+                        onCancel: {
+                            generationTask?.cancel()
+                            generationTask = nil
+                            withAnimation(.snappy) { isGenerating = false }
+                        }
+                    )
                 }
             }
             .navigationTitle("Weekly Plan")
@@ -210,8 +211,8 @@ struct WeeklyPlannerView: View {
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
         let history = (try? modelContext.fetch(descriptor)) ?? []
-        
-        Task {
+
+        generationTask = Task {
             do {
                 // NEW: Use split AI service
                 let apiClient = container.aiClient
@@ -339,17 +340,18 @@ struct DayRow: View {
             
             if let routine = assignedRoutine {
                 HStack {
-                    Image(systemName: "dumbbell.fill").foregroundStyle(.blue).font(.caption)
+                    Image(systemName: "dumbbell.fill").foregroundStyle(Color.accentColor).font(.caption)
                     Text(routine.name).font(.subheadline).fontWeight(.medium).lineLimit(1)
                     Spacer()
                     Button(action: onRemove) {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.gray.opacity(0.4))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(routine.name) from \(day)")
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
-                .background(Color.blue.opacity(0.1))
+                .background(Color.accentColor.opacity(0.1))
                 .cornerRadius(8)
             } else {
                 Text("Rest Day")

@@ -49,6 +49,9 @@ struct ActiveWorkoutView: View {
     // MARK: - Delete Confirmation State
     @State private var showDeleteConfirmation = false
     @State private var exerciseToDelete: Exercise?
+
+    // MARK: - AI Suggestion State (one suggestion at a time, per exercise)
+    @State private var suggestingExerciseID: UUID?
     
     enum DisplayUnit: Identifiable {
         case single(Exercise)
@@ -406,12 +409,13 @@ struct ActiveWorkoutView: View {
                                     viewModel.completeSet(set)
                                     withAnimation { timerManager.startTimer(duration: defaultRestSeconds) }
                                 },
-                                container: container,
                                 focus: $focusedField
                             )
                         }
                     }
                     .listRowSeparator(.hidden)
+                    // Completed sets visually recede so progress reads at a glance
+                    .listRowBackground(set.isCompleted ? Color.green.opacity(0.08) : nil)
                 }
                 .onDelete { indexSet in
                     let relevantSets = getSets(for: exercise, in: session)
@@ -436,6 +440,7 @@ struct ActiveWorkoutView: View {
                 exercise: exercise,
                 session: session,
                 isCollapsed: collapsedExercises.contains(exercise.id),
+                isSuggesting: suggestingExerciseID == exercise.id,
                 onToggleCollapse: { toggleCollapse(for: exercise) },
                 onMoveUp: { moveExercise(exercise, direction: -1, viewModel: viewModel, proxy: proxy) },
                 onMoveDown: { moveExercise(exercise, direction: 1, viewModel: viewModel, proxy: proxy) },
@@ -443,12 +448,63 @@ struct ActiveWorkoutView: View {
                     exerciseToSwap = exercise
                     showExerciseList = true
                 },
+                onSuggest: { suggestWeights(for: exercise, session: session) },
                 onDelete: {
                     exerciseToDelete = exercise
                     showDeleteConfirmation = true
                 }
             )
             .id(exercise.id)
+        }
+    }
+
+    // MARK: - AI Weight Suggestion
+    // Lives at the exercise level (header menu) rather than per-row — frees
+    // horizontal space in SetRowView and removes a per-row profiles query.
+    private func suggestWeights(for exercise: Exercise, session: WorkoutSession) {
+        guard suggestingExerciseID == nil else { return }
+        let sets = getSets(for: exercise, in: session)
+        guard let targetSet = sets.first(where: { !$0.isCompleted && $0.weight == 0 })
+                ?? sets.first(where: { !$0.isCompleted }) else { return }
+
+        suggestingExerciseID = exercise.id
+
+        Task {
+            // Context: best set from each of the last 5 sessions
+            var historyData: [HistoryContext] = []
+            let descriptor = FetchDescriptor<WorkoutSession>(
+                predicate: #Predicate<WorkoutSession> { $0.isCompleted == true },
+                sortBy: [SortDescriptor(\.date, order: .reverse)]
+            )
+            if let recentSessions = try? modelContext.fetch(descriptor) {
+                for past in recentSessions.prefix(5) {
+                    let pastSets = past.sets.filter { $0.exercise?.id == exercise.id }
+                    if let best = pastSets.max(by: { $0.weight < $1.weight }) {
+                        historyData.append(HistoryContext(date: past.date, weight: best.weight, reps: best.reps))
+                    }
+                }
+            }
+
+            do {
+                let prompt = GeminiPromptBuilder.buildSetSuggestionPrompt(
+                    exerciseName: exercise.name,
+                    history: historyData,
+                    goal: profiles.first?.fitnessGoal ?? "General Fitness"
+                )
+                let response = try await container.aiClient.sendRequest(prompt: prompt)
+                let suggestion = try GeminiResponseParser.parseSetSuggestion(response)
+
+                await MainActor.run {
+                    withAnimation(.snappy) {
+                        targetSet.weight = suggestion.weight
+                        targetSet.reps = suggestion.reps
+                    }
+                    HapticManager.shared.notification(type: .success)
+                    suggestingExerciseID = nil
+                }
+            } catch {
+                await MainActor.run { suggestingExerciseID = nil }
+            }
         }
     }
     
@@ -538,16 +594,24 @@ struct WorkoutSectionHeader: View {
     let exercise: Exercise
     let session: WorkoutSession
     let isCollapsed: Bool
+    let isSuggesting: Bool
     let onToggleCollapse: () -> Void
     let onMoveUp: () -> Void
     let onMoveDown: () -> Void
     let onSwap: () -> Void
+    let onSuggest: () -> Void
     let onDelete: () -> Void
-    
+
     private var aiNote: String? {
         session.sets.first(where: { $0.exercise == exercise && $0.routineItem?.note != nil })?.routineItem?.note
     }
-    
+
+    /// Completed/total for this exercise — readable even when collapsed.
+    private var setProgress: (done: Int, total: Int) {
+        let sets = session.sets.filter { $0.exercise == exercise }
+        return (sets.filter(\.isCompleted).count, sets.count)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -556,38 +620,68 @@ struct WorkoutSectionHeader: View {
                     .bold()
                     .foregroundStyle(.primary)
                     .textCase(nil)
-                
+
+                let progress = setProgress
+                if progress.total > 0 {
+                    Text("\(progress.done)/\(progress.total)")
+                        .font(.caption).bold()
+                        .monospacedDigit()
+                        .foregroundStyle(progress.done == progress.total ? .green : .secondary)
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: progress.done)
+                        .textCase(nil)
+                        .accessibilityLabel("\(progress.done) of \(progress.total) sets complete")
+                }
+
+                if isSuggesting {
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding(.leading, 4)
+                }
+
                 Spacer()
-                
+
                 HStack(spacing: 0) {
-                    Button(action: onMoveUp) { Image(systemName: "arrow.up").font(.caption.bold()).padding(8) }.buttonStyle(.plain)
-                    Button(action: onMoveDown) { Image(systemName: "arrow.down").font(.caption.bold()).padding(8) }.buttonStyle(.plain)
+                    Button(action: onMoveUp) {
+                        Image(systemName: "arrow.up").font(.caption.bold())
+                            .padding(10).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                    Button(action: onMoveDown) {
+                        Image(systemName: "arrow.down").font(.caption.bold())
+                            .padding(10).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
                 }
                 .foregroundStyle(.secondary)
-                
+
                 Menu {
+                    Button("AI Suggest Weights", systemImage: "wand.and.stars") {
+                        onSuggest()
+                    }
+                    .disabled(isSuggesting)
+
                     Button("Swap Exercise", systemImage: "arrow.triangle.2.circlepath") {
                         onSwap()
                     }
-                    
+
                     Button(isCollapsed ? "Expand" : "Collapse", systemImage: "chevron.right") {
                         onToggleCollapse()
                     }
-                    
+
                     Divider()
-                    
+
                     Button(role: .destructive) {
                         onDelete()
                     } label: {
                         Label("Delete Exercise", systemImage: "trash")
                     }
-                    
+
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
                         .foregroundStyle(Color.accentColor)
                         .padding(.leading, 8)
                         .padding(.vertical, 8)
+                        .contentShape(Rectangle())
                 }
             }
             
@@ -618,7 +712,10 @@ struct WorkoutHeaderView: View {
         HStack {
             VStack(alignment: .leading) {
                 Text("Current Session").font(.caption).foregroundStyle(.secondary).textCase(.uppercase)
-                Text(formatTime(elapsedSeconds)).font(.largeTitle).monospacedDigit().fontWeight(.bold)
+                Text(formatTime(elapsedSeconds))
+                    .font(.largeTitle).monospacedDigit().fontWeight(.bold)
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: elapsedSeconds)
             }
             Spacer()
             Button("Finish") { onFinish() }

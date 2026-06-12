@@ -15,7 +15,12 @@ struct CardioSetRowView: View {
 
     // FIX: Explicitly define the body of the computed property
     private var cardioMode: String {
-        return set.exercise?.cardioType ?? "Distance"
+        return self.set.exercise?.cardioType ?? "Distance"
+    }
+
+    /// Completed intervals visually recede; the checkmark stays full strength.
+    private var completedDim: Double {
+        self.set.isCompleted ? 0.55 : 1.0
     }
     
     var body: some View {
@@ -110,7 +115,8 @@ struct CardioSetRowView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            
+            .opacity(completedDim)
+
             // 3. Completion Checkbox
             Button(action: {
                 HapticManager.shared.impact(style: .medium)
@@ -121,6 +127,7 @@ struct CardioSetRowView: View {
                 Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title)
                     .foregroundStyle(set.isCompleted ? .green : .gray.opacity(0.3))
+                    .symbolEffect(.bounce, value: set.isCompleted)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(set.isCompleted ? "Interval \(index) completed" : "Mark interval \(index) complete")

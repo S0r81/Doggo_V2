@@ -27,7 +27,9 @@ struct RoutineListView: View {
     
     var body: some View {
         NavigationStack {
-            VStack {
+            // spacing: 0 — each child owns its own explicit padding, so the
+            // gap below the picker is one number instead of three stacked ones.
+            VStack(spacing: 0) {
                 // 1. Segmented Control
                 Picker("View", selection: $selectedView) {
                     ForEach(views, id: \.self) { viewName in
@@ -35,8 +37,9 @@ struct RoutineListView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .padding()
-                
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+
                 // 2. The Content
                 if selectedView == "Routines" {
                     RoutineListContent(
@@ -53,6 +56,9 @@ struct RoutineListView: View {
                 }
             }
             .navigationTitle("Lift")
+            // Inline matches Dashboard and avoids the large-title collapse
+            // jitter caused by fixed content sitting above the scrolling List.
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 16) {
@@ -219,6 +225,7 @@ struct RoutineListContent: View {
         // MARK: - THEME & ANIMATION FIXES
         .scrollContentBackground(.hidden) // Make List Transparent
         .background(Color.background(for: userTheme)) // Apply Theme
+        .contentMargins(.top, Spacing.sm, for: .scrollContent) // Match Exercises segment
         .smoothListAnimation(value: routines) // Smooth Deletion/Reordering
         .sheet(item: $routineToEdit) { routine in
             RoutineCreationView(routineToEdit: routine, container: container)
@@ -473,8 +480,9 @@ struct ExerciseLibraryContent: View {
         // MARK: - THEME & ANIMATION FIXES
         .scrollContentBackground(.hidden) // Make List Transparent
         .background(Color.background(for: userTheme)) // Apply Theme
+        .contentMargins(.top, Spacing.xs, for: .scrollContent) // chips row supplies the other 4pt
         // This is the Magic Line for Smooth Sorting:
-        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: exercises)
+        .animation(.smooth, value: exercises)
         // Deleting an exercise cascade-deletes its workout history — confirm first.
         .alert("Delete Exercise?", isPresented: Binding(
             get: { exerciseToDelete != nil },

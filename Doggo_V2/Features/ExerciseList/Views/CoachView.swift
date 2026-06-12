@@ -102,18 +102,11 @@ struct CoachView: View {
     }
     
     private var loadingView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            ProgressView().scaleEffect(1.5)
-            Text("Calculating volume & consistency...")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Analyzing muscle split...")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-            Spacer()
-        }
-        .frame(height: 300)
+        AILoadingView(
+            title: "Analyzing your training…",
+            subtitle: "Volume · consistency · muscle split"
+        )
+        .frame(maxWidth: .infinity, minHeight: 300)
     }
     
     private func generateReport(force: Bool) {
@@ -161,10 +154,11 @@ struct CoachView: View {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
         
-        withAnimation { isCopied = true }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation { isCopied = false }
+        withAnimation(.snappy) { isCopied = true }
+
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation(.snappy) { isCopied = false }
         }
     }
 }

@@ -12,13 +12,9 @@ struct SetRowView: View {
     @Bindable var set: WorkoutSet
     var index: Int
     var onComplete: () -> Void
-    let container: AppContainer
     // Keyboard focus is owned by ActiveWorkoutView so a single "Done" toolbar
     // can serve every row.
     var focus: FocusState<WorkoutSetField?>.Binding
-
-    // Data for AI Context
-    @Query var profiles: [UserProfile]
 
     // MARK: - "Ghost" Values
     // Loaded once on appear instead of a live @Query per row — with one query per set
@@ -29,10 +25,13 @@ struct SetRowView: View {
     @AppStorage("useKeypadForSets") private var useKeypadForSets = false
     @State private var showWeightPicker = false
     @State private var showRepsPicker = false
+    @ScaledMetric(relativeTo: .title3) private var repsFieldWidth: CGFloat = 60
 
-    // AI State
-    @State private var isSuggesting = false
-    @State private var suggestionNote: String?
+    /// Completed sets visually recede; the checkmark stays full strength.
+    /// (`self.` required — a bare `set` here parses as a setter accessor.)
+    private var completedDim: Double {
+        self.set.isCompleted ? 0.55 : 1.0
+    }
 
     // Logic to find the specific "Ghost" values (e.g. Set 1 vs Set 1)
     private var ghostValues: (weight: String, reps: String) {
@@ -84,32 +83,17 @@ struct SetRowView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.md) {
                 // 1. Set Number
                 Text("\(index)")
                     .font(.caption).bold()
                     .foregroundStyle(.secondary)
                     .frame(width: 20)
-                
-                // 2. Magic Wand
-                if isSuggesting {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .frame(width: 24, height: 24)
-                } else {
-                    Button(action: { getSmartSuggestion() }) {
-                        Image(systemName: "wand.and.stars")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.purple)
-                            .frame(width: 24, height: 24)
-                            .background(Color.purple.opacity(0.1))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Get AI weight suggestion")
-                }
-                
-                // 3. Weight Input with Ghost Value
+                    .opacity(completedDim)
+
+                // 2. Weight Input with Ghost Value
+                // (AI suggestion moved to the exercise header menu — the row
+                // was too cramped with five elements on small screens)
                 HStack(spacing: 0) {
                     if useKeypadForSets {
                         TextField("Last: \(ghostValues.weight)", value: Binding(
@@ -121,7 +105,10 @@ struct SetRowView: View {
                         .multilineTextAlignment(.center)
                         .font(set.weight == 0 ? .caption : .title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(set.weight == 0 ? .secondary.opacity(0.6) : Color.accentColor)
+                        // Plain .secondary + italic: ghost text is information,
+                        // and the old 60%-opacity grey failed contrast.
+                        .foregroundStyle(set.weight == 0 ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor))
+                        .italic(set.weight == 0)
                         .frame(maxWidth: .infinity)
                     } else {
                         Button(action: { showWeightPicker = true }) {
@@ -130,7 +117,8 @@ struct SetRowView: View {
                                 Text("Last: \(ghostValues.weight)")
                                     .font(.caption) // Smaller font for ghost
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.secondary.opacity(0.6))
+                                    .italic()
+                                    .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity)
                             } else {
                                 Text("\(set.weight, format: .number)")
@@ -143,15 +131,16 @@ struct SetRowView: View {
                             weightPickerSheet
                         }
                     }
-                    
+
                     Menu {
                         Button("lbs") { set.unit = "lbs" }
                         Button("kg") { set.unit = "kg" }
                     } label: {
                         Text(set.unit)
                             .font(.caption2).foregroundStyle(.secondary)
-                            .padding(.horizontal, 6).padding(.vertical, 8)
+                            .padding(.horizontal, 8).padding(.vertical, 10)
                             .background(Color.secondary.opacity(0.1)).cornerRadius(4)
+                            .contentShape(Rectangle())
                     }
                     .padding(.trailing, 6)
                 }
@@ -159,8 +148,9 @@ struct SetRowView: View {
                 .background(Color.accentColor.opacity(0.1))
                 .cornerRadius(8)
                 .frame(maxWidth: .infinity)
+                .opacity(completedDim)
                 
-                // 4. Reps Input with Ghost Value
+                // 3. Reps Input with Ghost Value
                 if useKeypadForSets {
                     VStack(spacing: 2) {
                         TextField("Last: \(ghostValues.reps)", value: Binding(
@@ -172,14 +162,16 @@ struct SetRowView: View {
                         .multilineTextAlignment(.center)
                         .font(set.reps == 0 ? .caption : .title3)
                         .fontWeight(.bold)
-                        .foregroundStyle(set.reps == 0 ? .secondary.opacity(0.6) : Color.accentColor)
-                        
+                        .foregroundStyle(set.reps == 0 ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor))
+                        .italic(set.reps == 0)
+
                         Text("reps").font(.caption2).foregroundStyle(.secondary)
                     }
-                    .frame(width: 60)
+                    .frame(width: repsFieldWidth)
                     .padding(.vertical, 6)
                     .background(Color.accentColor.opacity(0.1))
                     .cornerRadius(8)
+                    .opacity(completedDim)
                 } else {
                     Button(action: { showRepsPicker = true }) {
                         VStack(spacing: 2) {
@@ -188,25 +180,27 @@ struct SetRowView: View {
                                 Text("Last: \(ghostValues.reps)")
                                     .font(.caption)
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.secondary.opacity(0.6))
+                                    .italic()
+                                    .foregroundStyle(.secondary)
                             } else {
                                 Text("\(set.reps)")
                                     .font(.title3).fontWeight(.bold).foregroundStyle(Color.accentColor)
                             }
                             Text("reps").font(.caption2).foregroundStyle(.secondary)
                         }
-                        .frame(width: 60)
+                        .frame(width: repsFieldWidth)
                         .padding(.vertical, 6)
                         .background(Color.accentColor.opacity(0.1))
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
+                    .opacity(completedDim)
                     .sheet(isPresented: $showRepsPicker) {
                         repsPickerSheet
                     }
                 }
                 
-                // 5. Completion Checkbox
+                // 4. Completion Checkbox
                 Button(action: {
                     HapticManager.shared.impact(style: .medium)
                     // One-tap "same as last time": completing an untouched set
@@ -222,22 +216,12 @@ struct SetRowView: View {
                     Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
                         .font(.title)
                         .foregroundStyle(set.isCompleted ? .green : .gray.opacity(0.3))
+                        .symbolEffect(.bounce, value: set.isCompleted)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(set.isCompleted ? "Set \(index) completed" : "Mark set \(index) complete")
             }
             .padding(.vertical, 4)
-            
-            // Suggestion Note (Toast)
-            if let note = suggestionNote {
-                Text(note)
-                    .font(.caption2)
-                    .foregroundStyle(.purple)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 50)
-                    .padding(.bottom, 6)
-                    .transition(.opacity)
-            }
         }
         .onAppear { loadGhostValues() }
     }
@@ -269,59 +253,4 @@ struct SetRowView: View {
         .presentationDetents([.fraction(0.3)]).presentationDragIndicator(.visible)
     }
     
-    // MARK: - AI Logic
-    private func getSmartSuggestion() {
-        guard let exercise = set.exercise else { return }
-        
-        isSuggesting = true
-        suggestionNote = nil
-        
-        Task {
-            // 1. Fetch Context (Previous Best)
-            var historyData: [HistoryContext] = []
-            
-            // Simple logic: Find the last best set for this exercise
-            // (In a real app, you might want to move this context logic to a ViewModel/Service)
-            let descriptor = FetchDescriptor<WorkoutSession>(
-                predicate: #Predicate<WorkoutSession> { $0.isCompleted == true },
-                sortBy: [SortDescriptor(\.date, order: .reverse)]
-            )
-            
-            if let recentSessions = try? modelContext.fetch(descriptor) {
-                for session in recentSessions.prefix(5) {
-                    let sets = session.sets.filter { $0.exercise?.id == exercise.id }
-                    if let best = sets.max(by: { $0.weight < $1.weight }) {
-                        historyData.append(HistoryContext(date: session.date, weight: best.weight, reps: best.reps))
-                    }
-                }
-            }
-            
-            // 2. Call Gemini
-            do {
-                let apiClient = container.aiClient
-                let prompt = GeminiPromptBuilder.buildSetSuggestionPrompt(
-                    exerciseName: exercise.name,
-                    history: historyData,
-                    goal: profiles.first?.fitnessGoal ?? "General Fitness"
-                )
-                let response = try await apiClient.sendRequest(prompt: prompt)
-                let suggestion = try GeminiResponseParser.parseSetSuggestion(response)
-                
-                await MainActor.run {
-                    withAnimation {
-                        set.weight = suggestion.weight
-                        set.reps = suggestion.reps
-                        suggestionNote = "✨ Coach: \(suggestion.reasoning)"
-                        isSuggesting = false
-                    }
-                    HapticManager.shared.notification(type: .success)
-                }
-            } catch {
-                await MainActor.run {
-                    suggestionNote = "⚠️ Couldn't reach coach."
-                    isSuggesting = false
-                }
-            }
-        }
-    }
 }

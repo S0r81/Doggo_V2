@@ -29,6 +29,10 @@ struct DashboardView: View {
     // Tab States for Paging
     @State private var consistencyPage: Int = 4
     @State private var volumePage: Int = 2
+
+    // Chart heights scale with Dynamic Type instead of clipping large text
+    @ScaledMetric(relativeTo: .body) private var consistencyChartHeight: CGFloat = 160
+    @ScaledMetric(relativeTo: .body) private var volumeChartHeight: CGFloat = 200
     
     // Fetch History
     @Query(
@@ -143,26 +147,26 @@ struct DashboardView: View {
     
     private var quickActionsView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.md) {
+                // Semantic colors: theme accent for navigation actions,
+                // purple reserved exclusively for AI features.
                 Button(action: { selectedTab = 2 }) {
-                    // Note: You hardcoded colors here (.blue, .purple).
-                    // If you want these to match the theme strictly, change them to Color.accentColor
-                    QuickActionButton(title: "Log Workout", icon: "plus", color: .blue)
+                    QuickActionButton(title: "Log Workout", icon: "plus", color: .accentColor)
                 }
                 .buttonStyle(BouncyButtonStyle())
-                
+
                 Button(action: { selectedTab = 1 }) {
-                    QuickActionButton(title: "New Routine", icon: "list.bullet.clipboard", color: .purple)
+                    QuickActionButton(title: "New Routine", icon: "list.bullet.clipboard", color: .accentColor)
                 }
                 .buttonStyle(BouncyButtonStyle())
-                
+
                 Button(action: { showCoach = true }) {
-                    QuickActionButton(title: "AI Coach", icon: "brain.head.profile", color: .orange)
+                    QuickActionButton(title: "AI Coach", icon: "brain.head.profile", color: .purple)
                 }
                 .buttonStyle(BouncyButtonStyle())
-                
+
                 Button(action: { showPlanner = true }) {
-                    QuickActionButton(title: "Plan Week", icon: "calendar.badge.clock", color: .teal)
+                    QuickActionButton(title: "Plan Week", icon: "calendar.badge.clock", color: .accentColor)
                 }
                 .buttonStyle(BouncyButtonStyle())
             }
@@ -172,11 +176,12 @@ struct DashboardView: View {
     
     private var statsGridView: some View {
         // "Total" prefixes make clear these are all-time numbers, not weekly ones.
-        LazyVGrid(columns: columns, spacing: 16) {
-            StatCard(title: "Total Workouts", value: "\(recentSessions.count)", icon: "dumbbell.fill", color: .blue)
-            StatCard(title: "Total Volume", value: viewModel.getTotalVolume(from: recentSessions, preferredUnit: unitSystem.rawValue), icon: "chart.bar.fill", color: .green)
-            StatCard(title: "Total Time", value: viewModel.getTotalDuration(from: recentSessions), icon: "clock.fill", color: .orange)
-            StatCard(title: "Current Streak", value: "\(viewModel.getCurrentStreak(from: recentSessions)) Days", icon: "flame.fill", color: .red)
+        // One accent for all stat icons — the four-hue rainbow read as noise.
+        LazyVGrid(columns: columns, spacing: Spacing.lg) {
+            StatCard(title: "Total Workouts", value: "\(recentSessions.count)", icon: "dumbbell.fill", color: .accentColor)
+            StatCard(title: "Total Volume", value: viewModel.getTotalVolume(from: recentSessions, preferredUnit: unitSystem.rawValue), icon: "chart.bar.fill", color: .accentColor)
+            StatCard(title: "Total Time", value: viewModel.getTotalDuration(from: recentSessions), icon: "clock.fill", color: .accentColor)
+            StatCard(title: "Current Streak", value: "\(viewModel.getCurrentStreak(from: recentSessions)) Days", icon: "flame.fill", color: .accentColor)
         }
         .padding(.horizontal)
     }
@@ -185,15 +190,12 @@ struct DashboardView: View {
     private var weeklyConsistencyView: some View {
         let pages = viewModel.getConsistencyPages(from: recentSessions)
 
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Consistency").font(.headline)
-                Spacer()
+        return VStack(alignment: .leading, spacing: Spacing.md) {
+            SectionHeader(title: "Consistency") {
                 if !pages.isEmpty {
                     ChartPagerControl(page: $consistencyPage, labels: pages.map(\.label))
                 }
             }
-            .padding(.horizontal)
 
             if pages.isEmpty {
                 ContentUnavailableView("No Data", systemImage: "chart.bar")
@@ -218,7 +220,7 @@ struct DashboardView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 160)
+                .frame(height: consistencyChartHeight)
                 .cardSurface()
                 .padding(.horizontal)
             }
@@ -229,18 +231,12 @@ struct DashboardView: View {
     private var volumeTrendView: some View {
         let pages = viewModel.getVolumePages(from: recentSessions)
 
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .foregroundStyle(.green)
-                Text("Volume Trend")
-                    .font(.headline)
-                Spacer()
+        return VStack(alignment: .leading, spacing: Spacing.md) {
+            SectionHeader(title: "Volume Trend", icon: "chart.line.uptrend.xyaxis") {
                 if !pages.isEmpty {
                     ChartPagerControl(page: $volumePage, labels: pages.map(\.label))
                 }
             }
-            .padding(.horizontal)
 
             if pages.isEmpty {
                 ContentUnavailableView("No Data", systemImage: "chart.bar")
@@ -287,7 +283,7 @@ struct DashboardView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 200)
+                .frame(height: volumeChartHeight)
                 .cardSurface()
                 .padding(.horizontal)
             }
@@ -297,8 +293,8 @@ struct DashboardView: View {
     @ViewBuilder
     private var recentBestsView: some View {
         if !recentSessions.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Recent Heavy Lifts").font(.headline).padding(.horizontal)
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                SectionHeader("Recent Heavy Lifts")
                 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
@@ -332,23 +328,10 @@ struct DashboardView: View {
     }
     
     private var workoutFocusView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Weekly Focus", systemImage: "target")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                Button {
-                    showFocusDetail = true
-                } label: {
-                    HStack(spacing: 2) {
-                        Text("Details")
-                        Image(systemName: "chevron.right").font(.caption2.bold())
-                    }
-                }
-                .font(.caption).bold().foregroundStyle(Color.accentColor)
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            SectionHeader("Weekly Focus", icon: "target", actionLabel: "Details") {
+                showFocusDetail = true
             }
-            .padding(.horizontal)
             
             let calendar = Calendar.current
             let now = Date()
@@ -373,10 +356,8 @@ struct DashboardView: View {
     }
     
     private var lastWorkoutView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Last Session").font(.headline)
-                Spacer()
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            SectionHeader(title: "Last Session") {
                 NavigationLink(destination: HistoryView(container: container)) {
                     HStack(spacing: 2) {
                         Text("History")
@@ -386,7 +367,6 @@ struct DashboardView: View {
                     .foregroundStyle(Color.accentColor)
                 }
             }
-            .padding(.horizontal)
             
             if let last = recentSessions.first {
                 NavigationLink(destination: WorkoutDetailView(session: last)) {
