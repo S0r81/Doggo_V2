@@ -146,39 +146,77 @@ struct HistoryImportView: View {
                     if let match = allExercises.first(where: { $0.name.lowercased() == exData.name.lowercased() }) {
                         exercise = match
                     } else {
-                        // Create New if not found
+                        // Create New if not found — the CSV carries Type and
+                        // Group columns, so use them before falling back to
+                        // the old "has distance" heuristic.
                         let newEx = Exercise(name: exData.name)
-                        // Infer type based on data (heuristic)
-                        if let firstSet = exData.sets.first, firstSet.distance != nil {
+                        if !exData.type.isEmpty {
+                            newEx.type = exData.type
+                        } else if let firstSet = exData.sets.first,
+                                  (firstSet.distance ?? 0) > 0 || (firstSet.steps ?? 0) > 0 {
                             newEx.type = "Cardio"
+                        }
+                        if !exData.muscleGroup.isEmpty && exData.muscleGroup != "-" {
+                            newEx.muscleGroup = exData.muscleGroup
+                        }
+                        if newEx.type == "Cardio" {
+                            // Reconstruct tracking from the CSV Unit column;
+                            // unknown strings fall back safely.
+                            newEx.cardioType = CardioTrackingType.inferred(
+                                fromUnit: exData.sets.first?.unit ?? "",
+                                hasDistance: exData.sets.contains { ($0.distance ?? 0) > 0 }
+                            ).rawValue
                         }
                         modelContext.insert(newEx)
                         exercise = newEx
                     }
-                    
+
                     // 3. Create Sets
-                    for setData in exData.sets {
-                        
-                        let newSet = WorkoutSet(
-                            weight: setData.weight,
-                            reps: Int(setData.reps),
+                    if exercise.isCardio || exData.type == "Cardio" {
+                        // Cardio invariant: one consolidated session block —
+                        // sum any multi-row legacy data.
+                        let totalDuration = exData.sets.compactMap(\.time).reduce(0, +)
+                        let totalDistance = exData.sets.compactMap(\.distance).reduce(0, +)
+                        let totalSteps = exData.sets.compactMap(\.steps).reduce(0, +)
+
+                        let csvUnit = exData.sets.first?.unit ?? ""
+                        let sessionBlock = WorkoutSet(
+                            weight: 0,
+                            reps: 0,
                             orderIndex: orderIndex,
-                            unit: setData.unit
+                            unit: csvUnit.isEmpty ? exercise.defaultUnit(isMetric: false) : csvUnit
                         )
-                        
-                        // Handle Cardio Fields
-                        if let dist = setData.distance { newSet.distance = dist }
-                        if let time = setData.time { newSet.duration = time }
-                        
-                        newSet.exercise = exercise
-                        newSet.workoutSession = newSession
-                        
-                        // CRITICAL FIX: Mark sets as completed too, or they might look "unchecked"
-                        newSet.isCompleted = true
-                        
-                        modelContext.insert(newSet)
-                        
+                        if totalDistance > 0 { sessionBlock.distance = totalDistance }
+                        if totalDuration > 0 { sessionBlock.duration = totalDuration }
+                        if totalSteps > 0 { sessionBlock.steps = totalSteps }
+                        sessionBlock.isCompleted = true
+                        sessionBlock.exercise = exercise
+                        sessionBlock.workoutSession = newSession
+                        modelContext.insert(sessionBlock)
                         orderIndex += 1
+                    } else {
+                        for setData in exData.sets {
+                            let newSet = WorkoutSet(
+                                weight: setData.weight,
+                                reps: Int(setData.reps),
+                                orderIndex: orderIndex,
+                                unit: setData.unit
+                            )
+
+                            if let dist = setData.distance { newSet.distance = dist }
+                            if let time = setData.time { newSet.duration = time }
+                            if let steps = setData.steps { newSet.steps = steps } // was silently dropped before
+
+                            newSet.exercise = exercise
+                            newSet.workoutSession = newSession
+
+                            // CRITICAL FIX: Mark sets as completed too, or they might look "unchecked"
+                            newSet.isCompleted = true
+
+                            modelContext.insert(newSet)
+
+                            orderIndex += 1
+                        }
                     }
                 }
             }

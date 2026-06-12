@@ -19,14 +19,14 @@ struct ExerciseCreationView: View {
     @State private var selectedMuscle: String = "Chest"
     @State private var selectedType: String = "Strength"
 
-    // NEW: Cardio Tracking Preference
-    @State private var selectedCardioType: String = "Distance"
+    // Cardio tracking — a closed enum, never free text, so analytics and
+    // CSV round-trips always understand the metric.
+    @State private var selectedTracking: CardioTrackingType = .distance
 
     // Expanded list for better categorization (@State so an edited exercise's
     // group — e.g. AI-created "Other" — can be appended when it's not listed)
     @State private var muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio", "Full Body"]
     let types = ["Strength", "Cardio", "Olympic", "Accessory"]
-    let cardioTypes = ["Distance", "Steps", "Time"] // Maps to the logic we built
     
     var body: some View {
         NavigationStack {
@@ -47,20 +47,23 @@ struct ExerciseCreationView: View {
                         }
                     }
                     
-                    // NEW: Only show if "Cardio" is selected
+                    // Only shown for Cardio — pick how the session is measured
                     if selectedType == "Cardio" {
-                        Picker("Tracking Metric", selection: $selectedCardioType) {
-                            ForEach(cardioTypes, id: \.self) { cType in
-                                Text(cType).tag(cType)
+                        Picker("Tracking Metric", selection: $selectedTracking) {
+                            ForEach(CardioTrackingType.allCases) { tracking in
+                                Label(tracking.label, systemImage: tracking.icon)
+                                    .tag(tracking)
                             }
                         }
                         .pickerStyle(.menu)
                     }
                 }
-                
+
                 Section {
                     if selectedType == "Cardio" {
-                        Text("Tracking: \(selectedCardioType) + Time")
+                        Text(selectedTracking == .timeOnly
+                             ? "Tracking: Time only"
+                             : "Tracking: \(selectedTracking.label) + Time")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -72,7 +75,7 @@ struct ExerciseCreationView: View {
                 if let exercise = exerciseToEdit {
                     name = exercise.name
                     selectedType = exercise.type
-                    selectedCardioType = exercise.cardioType
+                    selectedTracking = exercise.cardioTracking
                     if !muscleGroups.contains(exercise.muscleGroup) {
                         muscleGroups.append(exercise.muscleGroup)
                     }
@@ -98,19 +101,23 @@ struct ExerciseCreationView: View {
     }
     
     private func saveExercise() {
+        let trackingRaw = selectedType == "Cardio"
+            ? selectedTracking.rawValue
+            : CardioTrackingType.distance.rawValue
+
         if let exercise = exerciseToEdit {
             // Update in place — all logged history stays attached
             exercise.name = name
             exercise.type = selectedType
             exercise.muscleGroup = selectedMuscle
-            exercise.cardioType = selectedType == "Cardio" ? selectedCardioType : "Distance"
+            exercise.cardioType = trackingRaw
             try? modelContext.save()
         } else {
             let newExercise = Exercise(
                 name: name,
                 type: selectedType,
                 muscleGroup: selectedMuscle,
-                cardioType: selectedType == "Cardio" ? selectedCardioType : "Distance",
+                cardioType: trackingRaw,
                 isCustom: true // <--- EXPLICITLY set to TRUE
             )
             modelContext.insert(newExercise)

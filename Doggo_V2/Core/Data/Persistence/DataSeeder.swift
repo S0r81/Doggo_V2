@@ -75,26 +75,42 @@ class DataSeeder {
             ("Russian Twist", "Core", "Strength"),
             ("Ab Wheel Rollout", "Core", "Strength"),
             
-            // Cardio
-            ("Running (Outdoor)", "Cardio", "Cardio"),
-            ("Treadmill", "Cardio", "Cardio"),
-            ("Cycling", "Cardio", "Cardio"),
-            ("Rowing Machine", "Cardio", "Cardio"),
-            ("Jump Rope", "Cardio", "Cardio"),
-            ("Elliptical", "Cardio", "Cardio"),
-            ("Stairmaster", "Cardio", "Cardio")
         ]
-        
+
+        // Cardio — each entry carries its tracking type so the session block
+        // shows the right metric (distance vs floors vs laps vs time-only).
+        let cardioDefaults: [(name: String, tracking: CardioTrackingType)] = [
+            ("Running (Outdoor)", .distance),
+            ("Treadmill", .distance),
+            ("Cycling", .distance),
+            ("Rowing Machine", .distance),
+            ("Jump Rope", .timeOnly),
+            ("Elliptical", .distance),
+            ("Stairmaster", .floors),
+            ("Swimming", .laps),
+            ("Yoga", .timeOnly)
+        ]
+
         // 3. Loop and Insert
         for item in defaults {
             let exercise = Exercise(name: item.name, type: item.type, muscleGroup: item.muscle)
+            context.insert(exercise)
+        }
+
+        for item in cardioDefaults {
+            let exercise = Exercise(
+                name: item.name,
+                type: "Cardio",
+                muscleGroup: "Cardio",
+                cardioType: item.tracking.rawValue
+            )
             context.insert(exercise)
         }
         
         // 4. Save
         do {
             try context.save()
-            print("Success! Seeded \(defaults.count) exercises.")
+            print("Success! Seeded \(defaults.count + cardioDefaults.count) exercises.")
         } catch {
             print("Failed to seed exercises: \(error)")
         }

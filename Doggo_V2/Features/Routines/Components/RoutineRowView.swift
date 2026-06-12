@@ -247,7 +247,7 @@ struct RoutinePreviewSheet: View {
                                 if let exercise = item.exercise, !exercise.isDeleted {
                                     Text(exercise.name).font(.headline)
                                     HStack(spacing: 6) {
-                                        Text(repSummary(for: item))
+                                        Text(exercise.isCardio ? "1 session" : repSummary(for: item))
                                         Text("· \(exercise.muscleGroup)")
                                         if item.supersetID != nil {
                                             Text("· Superset").foregroundStyle(.pink).fontWeight(.bold)

@@ -77,15 +77,21 @@ class ActiveWorkoutViewModel {
         for item in sortedItems {
             if let exercise = item.exercise {
                 let sortedTemplates = item.templateSets.sorted { $0.orderIndex < $1.orderIndex }
+
+                // Unit follows the exercise's tracking type (mi/km, steps,
+                // floors, laps, min) — single source of truth on Exercise.
+                let unitForThisExercise = exercise.defaultUnit(isMetric: isMetric)
                 
-                var unitForThisExercise = "lbs"
-                if exercise.type == "Cardio" {
-                    unitForThisExercise = isMetric ? "km" : "mi"
-                } else {
-                    unitForThisExercise = isMetric ? "kg" : "lbs"
-                }
-                
-                if sortedTemplates.isEmpty {
+                if exercise.isCardio {
+                    // Cardio: exactly one session block, regardless of how
+                    // many template "sets" the routine carries.
+                    globalOrderIndex += 1
+                    let set = WorkoutSet(weight: 0, reps: 0, orderIndex: globalOrderIndex, unit: unitForThisExercise)
+                    set.exercise = exercise
+                    set.workoutSession = newSession
+                    set.routineItem = item
+                    context.insert(set)
+                } else if sortedTemplates.isEmpty {
                     globalOrderIndex += 1
                     let set = WorkoutSet(weight: 0, reps: 0, orderIndex: globalOrderIndex, unit: unitForThisExercise)
                     set.exercise = exercise
@@ -128,19 +134,20 @@ class ActiveWorkoutViewModel {
     
     func addSet(to exercise: Exercise, weight: Double, reps: Int) {
         guard let session = currentSession, let context = modelContext else { return }
-        
+
+        // Cardio is one continuous session, not a list of sets — if a session
+        // block already exists for this exercise, adding again is a no-op.
+        if exercise.isCardio,
+           session.sets.contains(where: { $0.exercise?.id == exercise.id }) {
+            return
+        }
+
         let highestIndex = session.sets.map { $0.orderIndex }.max() ?? 0
         let nextIndex = highestIndex + 1
         
         let savedUnit = UserDefaults.standard.string(forKey: "unitSystem")
         let isMetric = (savedUnit == "metric")
-        
-        var unitToUse = "lbs"
-        if exercise.type == "Cardio" {
-            unitToUse = isMetric ? "km" : "mi"
-        } else {
-            unitToUse = isMetric ? "kg" : "lbs"
-        }
+        let unitToUse = exercise.defaultUnit(isMetric: isMetric)
         
         // Auto-fill weight logic...
         var weightToUse = weight
@@ -176,14 +183,9 @@ class ActiveWorkoutViewModel {
                 set.duration = 0
                 set.steps = 0
                 
-                // Smart Unit Reset
-                if newExercise.type == "Cardio" {
-                    set.unit = "mi"
-                } else if newExercise.name.localizedCaseInsensitiveContains("Stair") {
-                    set.unit = "steps"
-                } else {
-                    set.unit = "lbs"
-                }
+                // Smart Unit Reset — follow the new exercise's tracking type
+                let isMetric = UserDefaults.standard.string(forKey: "unitSystem") == "metric"
+                set.unit = newExercise.defaultUnit(isMetric: isMetric)
             }
         }
         

@@ -17,9 +17,10 @@ class WorkoutSet {
     // Unit for this specific set (e.g., "lbs", "kg", "mi", "km", "steps")
     var unit: String = "lbs"
     
-    // Cardio specific metrics
-    var distance: Double?
-    var duration: Double?
+    // Cardio session metrics. A cardio exercise owns exactly ONE WorkoutSet
+    // per workout (the "session block") — enforced in ActiveWorkoutViewModel.
+    var distance: Double?   // in `unit` (mi/km)
+    var duration: Double?   // minutes
     var steps: Int?
     
     @Relationship(inverse: \WorkoutSession.sets)
@@ -43,8 +44,10 @@ class WorkoutSet {
     }
     
     // MARK: - Helper Logic
+    /// True for count-based cardio (steps, floors, laps) — the count value is
+    /// stored in `steps` for all three; `unit` carries which kind it is.
     var isStepsBased: Bool {
-        // If the unit is "steps" or the exercise name contains "Stair"
-        return unit.lowercased() == "steps" || (exercise?.name.localizedCaseInsensitiveContains("Stair") ?? false)
+        ["steps", "floors", "laps"].contains(unit.lowercased())
+            || (exercise?.name.localizedCaseInsensitiveContains("Stair") ?? false)
     }
 }

@@ -223,7 +223,10 @@ class DashboardViewModel {
         var total: Double = 0
         for s in sessions {
             for set in s.sets {
-                guard set.distance == nil else { continue }
+                // Cardio never contributes to weight volume. (The old
+                // `distance == nil` check was unreliable — strength sets
+                // initialize distance to 0.0, not nil.)
+                guard set.exercise?.isCardio != true else { continue }
                 var w = set.weight
                 if set.unit == "kg" { w *= 2.20462 }
                 total += (w * Double(set.reps))

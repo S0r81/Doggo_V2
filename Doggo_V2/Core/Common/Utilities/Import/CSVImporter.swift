@@ -8,25 +8,29 @@
 import Foundation
 
 struct CSVImporter {
-    
+
     // MARK: - Intermediate Models
-    struct ImportedSession: Identifiable {
+    // Sendable value types — these cross from the parsing task into the
+    // WorkoutRepository @ModelActor, so they must not be SwiftData models.
+    struct ImportedSession: Identifiable, Sendable {
         let id = UUID()
         let date: Date
         let name: String
         let duration: TimeInterval
         var exercises: [ImportedExercise]
+
+        var totalSets: Int { exercises.reduce(0) { $0 + $1.sets.count } }
     }
-    
-    struct ImportedExercise: Identifiable {
+
+    struct ImportedExercise: Identifiable, Sendable {
         let id = UUID()
         let name: String
         let muscleGroup: String // Added
         let type: String       // Added
         var sets: [ImportedSet]
     }
-    
-    struct ImportedSet: Identifiable {
+
+    struct ImportedSet: Identifiable, Sendable {
         let id = UUID()
         let weight: Double
         let reps: Double
@@ -35,7 +39,39 @@ struct CSVImporter {
         let steps: Int?       // Added
         let unit: String
     }
-    
+
+    // MARK: - File Parsing (async, off-main)
+
+    enum ImportError: LocalizedError {
+        case unreadable
+        case empty
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadable: return "Couldn't read that file. Make sure it's a Doggo CSV export."
+            case .empty: return "No workout sessions found in this CSV."
+            }
+        }
+    }
+
+    /// Reads a user-picked (security-scoped) file and parses it off the main
+    /// thread, so a multi-year history doesn't hitch the UI.
+    static func parse(fileURL: URL) async throws -> [ImportedSession] {
+        let accessing = fileURL.startAccessingSecurityScopedResource()
+        defer { if accessing { fileURL.stopAccessingSecurityScopedResource() } }
+
+        guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            throw ImportError.unreadable
+        }
+
+        let sessions = await Task.detached(priority: .userInitiated) {
+            parseCSV(from: text)
+        }.value
+
+        guard !sessions.isEmpty else { throw ImportError.empty }
+        return sessions
+    }
+
     // MARK: - Parsing Logic
     static func parseCSV(from text: String) -> [ImportedSession] {
         var sessions: [ImportedSession] = []

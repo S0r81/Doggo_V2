@@ -55,7 +55,7 @@ struct WorkoutDetailView: View {
                     // 3. The Section Header
                     ExerciseSectionHeader(
                         exercise: exercise,
-                        setCount: getSets(for: exercise).count,
+                        summary: headerSummary(for: exercise),
                         isEditing: isEditing,
                         isCollapsed: collapsedExercises.contains(exercise.id),
                         onToggleCollapse: { toggleCollapse(for: exercise) },
@@ -188,6 +188,13 @@ struct WorkoutDetailView: View {
     private func getSets(for exercise: Exercise) -> [WorkoutSet] {
         session.sets.filter { $0.exercise == exercise }.sorted { $0.orderIndex < $1.orderIndex }
     }
+
+    /// "3 sets" for strength; "30:00 • 3.2 mi" for cardio sessions.
+    private func headerSummary(for exercise: Exercise) -> String {
+        let sets = getSets(for: exercise)
+        guard exercise.isCardio else { return "\(sets.count) sets" }
+        return CardioFormatter.summary(for: sets.first)
+    }
     
     private func toggleCollapse(for exercise: Exercise) {
         withAnimation {
@@ -262,7 +269,7 @@ struct WorkoutDetailView: View {
 // MARK: - New Header View
 struct ExerciseSectionHeader: View {
     let exercise: Exercise
-    let setCount: Int
+    let summary: String
     let isEditing: Bool
     let isCollapsed: Bool
     let onToggleCollapse: () -> Void
@@ -277,9 +284,10 @@ struct ExerciseSectionHeader: View {
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .textCase(nil) // Fixes automatic capitalization in headers
-                Text("\(setCount) sets")
+                Text(summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .monospacedDigit()
                     .textCase(nil)
             }
             
@@ -405,10 +413,11 @@ struct HistorySetRowView: View {
     
     var body: some View {
         HStack {
-            Text("Set \(setIndex)")
+            // Cardio is a single continuous session, not "Set 1"
+            Text(isStepsBased || exerciseType == "Cardio" ? "Session" : "Set \(setIndex)")
                 .foregroundStyle(.secondary)
-                .frame(width: 45, alignment: .leading)
-            
+                .frame(minWidth: 45, alignment: .leading)
+
             if isEditing {
                 editableContent
             } else {
@@ -425,15 +434,15 @@ struct HistorySetRowView: View {
         if isStepsBased {
             // 1. Steps + Duration (Stairmaster)
             HStack {
-                TextField("Steps", value: Binding(
+                TextField("Count", value: Binding(
                     get: { set.steps ?? 0 },
                     set: { set.steps = $0 }
                 ), format: .number)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 80)
-                
-                Text("steps").font(.caption)
+
+                Text(set.unit).font(.caption) // steps / floors / laps
                 
                 Spacer()
                 
@@ -517,22 +526,12 @@ struct HistorySetRowView: View {
     private var displayContent: some View {
         Spacer()
         
-        if isStepsBased {
-            VStack(alignment: .trailing) {
-                Text("\(set.steps ?? 0) steps")
-                    .bold()
-                Text("\(Int(set.duration ?? 0)) min")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } else if exerciseType == "Cardio" {
-            VStack(alignment: .trailing) {
-                Text("\(set.distance?.formatted() ?? "0") \(set.unit)")
-                    .bold()
-                Text("\(Int(set.duration ?? 0)) min")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        if isStepsBased || exerciseType == "Cardio" {
+            // One formatter for every tracking type:
+            // "30:00 • 3.2 mi" / "45:00 • 12 floors" / "30:00"
+            Text(CardioFormatter.summary(for: set))
+                .bold()
+                .monospacedDigit()
         } else {
             HStack {
                 Text("\(Int(set.weight)) \(set.unit)")

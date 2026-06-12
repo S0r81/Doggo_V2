@@ -579,13 +579,16 @@ struct AppSettingsView: View {
                 }
                 
                 Section("Data Management") {
-                    if let csvURL = DataExporter.createCSVFile(from: allHistory) {
-                        ShareLink(item: csvURL) {
-                            Label("Export History to CSV", systemImage: "square.and.arrow.up")
-                        }
-                    } else {
-                        Text("Unable to generate export").foregroundStyle(.secondary)
+                    // Lazy Transferable: the CSV is only built when the user
+                    // actually shares (the old version wrote a temp file on
+                    // every body render).
+                    ShareLink(
+                        item: WorkoutBackupFile(makeCSV: { DataExporter.csvString(from: allHistory) }),
+                        preview: SharePreview("Doggo Workout Backup", image: Image(systemName: "dumbbell.fill"))
+                    ) {
+                        Label("Export History to CSV", systemImage: "square.and.arrow.up")
                     }
+                    .disabled(allHistory.isEmpty)
                 }
                 
                 Section {

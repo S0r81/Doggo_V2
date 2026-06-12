@@ -88,11 +88,15 @@ struct ExerciseRow: View {
         let dateText = date.formatted(date: .abbreviated, time: .omitted)
 
         if last.isStepsBased, let steps = last.steps, steps > 0 {
-            lastUsedSummary = "Last: \(steps) steps · \(dateText)"
-        } else if exercise.type == "Cardio" {
+            lastUsedSummary = "Last: \(steps.formatted()) \(last.unit) · \(dateText)"
+        } else if exercise.isCardio {
             let distance = last.distance ?? 0
-            guard distance > 0 else { return }
-            lastUsedSummary = "Last: \(distance.formatted()) \(last.unit) · \(dateText)"
+            if distance > 0 {
+                lastUsedSummary = "Last: \(distance.formatted()) \(last.unit) · \(dateText)"
+            } else if let minutes = last.duration, minutes > 0 {
+                // Time-only cardio (Yoga etc.)
+                lastUsedSummary = "Last: \(CardioFormatter.clock(minutes)) · \(dateText)"
+            }
         } else {
             guard last.weight > 0 else { return }
             lastUsedSummary = "Last: \(Int(last.weight)) \(last.unit) × \(last.reps)"

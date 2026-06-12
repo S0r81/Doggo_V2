@@ -7,11 +7,35 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
+import UniformTypeIdentifiers
+
+// MARK: - Transferable Backup
+// Wraps the CSV export for native ShareLink (AirDrop, Messages, Save to Files).
+// The CSV is built lazily — only when the user actually commits to sharing.
+struct WorkoutBackupFile: Transferable {
+    let makeCSV: @MainActor @Sendable () -> String
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .commaSeparatedText) { backup in
+            let csv = await backup.makeCSV()
+
+            let datePart = Date().formatted(date: .numeric, time: .omitted)
+                .replacingOccurrences(of: "/", with: "-")
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("Doggo_Backup_\(datePart).csv")
+
+            try csv.data(using: .utf8)?.write(to: url, options: .atomic)
+            return SentTransferredFile(url)
+        }
+    }
+}
 
 struct DataExporter {
-    
-    static func createCSVFile(from sessions: [WorkoutSession]) -> URL? {
-        
+
+    /// Builds the CSV content (the "Clean Schema").
+    static func csvString(from sessions: [WorkoutSession]) -> String {
+
         // 1. The Clean Header
         var csvString = "Date,Routine,Exercise,Group,Type,Set,Weight,Reps,Distance,Duration,Steps,Unit,Notes\n"
         
@@ -51,15 +75,23 @@ struct DataExporter {
                     if let t = set.duration, t > 0 { duration = String(format: "%.1f", t) }
                     if let s = set.steps, s > 0    { steps = String(s) }
                     
-                    // 1. Sanitize "Weight" units on Cardio (lbs -> mi default)
-                    if unit == "lbs" || unit == "kg" {
-                        unit = "mi"
-                    }
-                    
-                    // 2. Smart Fix: If we have steps but NO distance, it's a Step-based workout
-                    // This fixes "Stair Master" showing as "mi"
-                    if (set.steps ?? 0) > 0 && (set.distance ?? 0) == 0 {
-                        unit = "steps"
+                    // The Unit column doubles as the cardio tracking marker
+                    // (mi/km, steps, floors, laps, min) so imports can
+                    // reconstruct the tracking type. Prefer the exercise's
+                    // typed tracking; sniff the data for orphaned legacy sets.
+                    if let tracking = set.exercise?.cardioTracking {
+                        if let countUnit = tracking.countUnit {
+                            unit = countUnit
+                        } else if tracking == .timeOnly {
+                            unit = "min"
+                        } else if unit == "lbs" || unit == "kg" {
+                            unit = "mi" // distance sets with stale strength units
+                        }
+                    } else {
+                        if unit == "lbs" || unit == "kg" { unit = "mi" }
+                        if (set.steps ?? 0) > 0 && (set.distance ?? 0) == 0 {
+                            unit = "steps"
+                        }
                     }
                     
                 } else {
@@ -83,15 +115,21 @@ struct DataExporter {
             }
         }
         
-        // MARK: - Save to Temp Directory
+        return csvString
+    }
+
+    /// Legacy URL-based export (kept for compatibility).
+    static func createCSVFile(from sessions: [WorkoutSession]) -> URL? {
+        let csv = csvString(from: sessions)
+
         let datePart = Date().formatted(date: .numeric, time: .omitted).replacingOccurrences(of: "/", with: "-")
         let fileName = "Doggo_Export_\(datePart).csv"
-        
+
         let tempDir = FileManager.default.temporaryDirectory
         let fileURL = tempDir.appendingPathComponent(fileName)
-        
+
         do {
-            try csvString.write(to: fileURL, atomically: true, encoding: .utf8)
+            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
             return fileURL
         } catch {
             print("Error creating CSV: \(error)")

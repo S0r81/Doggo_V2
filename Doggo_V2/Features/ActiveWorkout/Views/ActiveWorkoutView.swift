@@ -52,6 +52,10 @@ struct ActiveWorkoutView: View {
 
     // MARK: - AI Suggestion State (one suggestion at a time, per exercise)
     @State private var suggestingExerciseID: UUID?
+
+    // MARK: - Plate Calculator State
+    @State private var showPlateCalculator = false
+    @State private var plateCalculatorTarget: Double = 0
     
     enum DisplayUnit: Identifiable {
         case single(Exercise)
@@ -99,6 +103,11 @@ struct ActiveWorkoutView: View {
                 // CardioSetRowView. Registered up here it silently failed to
                 // appear after a cold launch until the view was rebuilt.
             }
+        }
+        .sheet(isPresented: $showPlateCalculator) {
+            PlateCalculatorView(initialTarget: plateCalculatorTarget)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showExerciseList) {
             if let session = viewModel?.currentSession {
@@ -323,6 +332,13 @@ struct ActiveWorkoutView: View {
             .disabled(!canMoveFocus(1))
             .accessibilityLabel("Next field")
 
+            Button {
+                presentPlateCalculatorForFocusedField()
+            } label: {
+                Image(systemName: "dumbbell").fontWeight(.semibold)
+            }
+            .accessibilityLabel("Plate calculator")
+
             Spacer()
             Button("Done") { focusedField = nil }
                 .fontWeight(.semibold)
@@ -333,6 +349,34 @@ struct ActiveWorkoutView: View {
         .background(.thinMaterial)
         .overlay(alignment: .top) { Divider() }
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - Plate Calculator
+    /// From the keyboard bar: use the weight of whichever set owns the keypad.
+    private func presentPlateCalculatorForFocusedField() {
+        guard let session = viewModel?.currentSession else { return }
+
+        var setID: UUID?
+        switch focusedField {
+        case .weight(let id), .reps(let id): setID = id
+        default: break
+        }
+
+        if let setID, let set = session.sets.first(where: { $0.id == setID }) {
+            plateCalculatorTarget = set.weight
+        } else {
+            plateCalculatorTarget = 0
+        }
+        showPlateCalculator = true
+    }
+
+    /// From an exercise header menu: use the working set's weight.
+    private func presentPlateCalculator(for exercise: Exercise, session: WorkoutSession) {
+        let sets = getSets(for: exercise, in: session)
+        plateCalculatorTarget = sets.first(where: { !$0.isCompleted && $0.weight > 0 })?.weight
+            ?? sets.last(where: { $0.weight > 0 })?.weight
+            ?? 0
+        showPlateCalculator = true
     }
 
     // MARK: - Focus Navigation
@@ -347,11 +391,11 @@ struct ActiveWorkoutView: View {
             guard let exercise = set.exercise,
                   !collapsedExercises.contains(exercise.id) else { continue }
 
-            if exercise.type == "Cardio" {
-                switch exercise.cardioType {
-                case "Distance": fields.append(.distance(set.id))
-                case "Steps": fields.append(.steps(set.id))
-                default: break
+            if exercise.isCardio {
+                switch exercise.cardioTracking {
+                case .distance: fields.append(.distance(set.id))
+                case .steps, .floors, .laps: fields.append(.steps(set.id))
+                case .timeOnly: break
                 }
                 fields.append(.time(set.id))
             } else if useKeypad {
@@ -391,17 +435,30 @@ struct ActiveWorkoutView: View {
     ) -> some View {
         Section {
             if !collapsedExercises.contains(exercise.id) {
-                let relevantSets = getSets(for: exercise, in: session)
-                ForEach(relevantSets, id: \.self) { set in
-                    let index = (relevantSets.firstIndex(of: set) ?? 0) + 1
-                    HStack(spacing: 0) {
-                        if isSuperset {
-                            Rectangle().fill(Color.pink).frame(width: 4).padding(.trailing, 12)
+                if exercise.isCardio {
+                    // CARDIO: one continuous Session Block — no set list, no
+                    // numbering, and no Add Set (the single backing set is
+                    // guaranteed by ActiveWorkoutViewModel).
+                    if let sessionSet = getSets(for: exercise, in: session).first {
+                        HStack(spacing: 0) {
+                            if isSuperset {
+                                Rectangle().fill(Color.pink).frame(width: 4).padding(.trailing, Spacing.md)
+                            }
+                            CardioSetRowView(set: sessionSet, focus: $focusedField)
                         }
-                        
-                        if exercise.type == "Cardio" {
-                            CardioSetRowView(set: set, index: index, focus: $focusedField)
-                        } else {
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(sessionSet.isCompleted ? Color.green.opacity(0.08) : nil)
+                    }
+                } else {
+                    // STRENGTH: the classic numbered set list
+                    let relevantSets = getSets(for: exercise, in: session)
+                    ForEach(relevantSets, id: \.self) { set in
+                        let index = (relevantSets.firstIndex(of: set) ?? 0) + 1
+                        HStack(spacing: 0) {
+                            if isSuperset {
+                                Rectangle().fill(Color.pink).frame(width: 4).padding(.trailing, Spacing.md)
+                            }
+
                             SetRowView(
                                 set: set,
                                 index: index,
@@ -412,26 +469,26 @@ struct ActiveWorkoutView: View {
                                 focus: $focusedField
                             )
                         }
+                        .listRowSeparator(.hidden)
+                        // Completed sets visually recede so progress reads at a glance
+                        .listRowBackground(set.isCompleted ? Color.green.opacity(0.08) : nil)
                     }
-                    .listRowSeparator(.hidden)
-                    // Completed sets visually recede so progress reads at a glance
-                    .listRowBackground(set.isCompleted ? Color.green.opacity(0.08) : nil)
-                }
-                .onDelete { indexSet in
-                    let relevantSets = getSets(for: exercise, in: session)
-                    for index in indexSet { viewModel.deleteSet(relevantSets[index]) }
-                }
-                
-                Button {
-                    HapticManager.shared.impact(style: .light)
-                    viewModel.addSet(to: exercise, weight: 0, reps: 0)
-                } label: {
-                    HStack {
-                        if isSuperset { Color.clear.frame(width: 16) }
-                        Label("Add Set", systemImage: "plus.circle.fill")
-                            .font(.subheadline).foregroundStyle(Color.accentColor)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 4)
+                    .onDelete { indexSet in
+                        let relevantSets = getSets(for: exercise, in: session)
+                        for index in indexSet { viewModel.deleteSet(relevantSets[index]) }
+                    }
+
+                    Button {
+                        HapticManager.shared.impact(style: .light)
+                        viewModel.addSet(to: exercise, weight: 0, reps: 0)
+                    } label: {
+                        HStack {
+                            if isSuperset { Color.clear.frame(width: 16) }
+                            Label("Add Set", systemImage: "plus.circle.fill")
+                                .font(.subheadline).foregroundStyle(Color.accentColor)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.vertical, 4)
+                        }
                     }
                 }
             }
@@ -449,6 +506,7 @@ struct ActiveWorkoutView: View {
                     showExerciseList = true
                 },
                 onSuggest: { suggestWeights(for: exercise, session: session) },
+                onPlateCalculator: { presentPlateCalculator(for: exercise, session: session) },
                 onDelete: {
                     exerciseToDelete = exercise
                     showDeleteConfirmation = true
@@ -600,6 +658,7 @@ struct WorkoutSectionHeader: View {
     let onMoveDown: () -> Void
     let onSwap: () -> Void
     let onSuggest: () -> Void
+    let onPlateCalculator: () -> Void
     let onDelete: () -> Void
 
     private var aiNote: String? {
@@ -621,16 +680,27 @@ struct WorkoutSectionHeader: View {
                     .foregroundStyle(.primary)
                     .textCase(nil)
 
-                let progress = setProgress
-                if progress.total > 0 {
-                    Text("\(progress.done)/\(progress.total)")
-                        .font(.caption).bold()
-                        .monospacedDigit()
-                        .foregroundStyle(progress.done == progress.total ? .green : .secondary)
-                        .contentTransition(.numericText())
-                        .animation(.snappy, value: progress.done)
-                        .textCase(nil)
-                        .accessibilityLabel("\(progress.done) of \(progress.total) sets complete")
+                if exercise.isCardio {
+                    // A fraction makes no sense for a single session — just a
+                    // checkmark once it's done.
+                    if session.sets.first(where: { $0.exercise == exercise })?.isCompleted == true {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                            .accessibilityLabel("Session complete")
+                    }
+                } else {
+                    let progress = setProgress
+                    if progress.total > 0 {
+                        Text("\(progress.done)/\(progress.total)")
+                            .font(.caption).bold()
+                            .monospacedDigit()
+                            .foregroundStyle(progress.done == progress.total ? .green : .secondary)
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: progress.done)
+                            .textCase(nil)
+                            .accessibilityLabel("\(progress.done) of \(progress.total) sets complete")
+                    }
                 }
 
                 if isSuggesting {
@@ -654,10 +724,16 @@ struct WorkoutSectionHeader: View {
                 .foregroundStyle(.secondary)
 
                 Menu {
-                    Button("AI Suggest Weights", systemImage: "wand.and.stars") {
-                        onSuggest()
+                    if !exercise.isCardio {
+                        Button("AI Suggest Weights", systemImage: "wand.and.stars") {
+                            onSuggest()
+                        }
+                        .disabled(isSuggesting)
+
+                        Button("Plate Calculator", systemImage: "dumbbell") {
+                            onPlateCalculator()
+                        }
                     }
-                    .disabled(isSuggesting)
 
                     Button("Swap Exercise", systemImage: "arrow.triangle.2.circlepath") {
                         onSwap()

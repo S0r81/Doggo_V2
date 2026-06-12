@@ -2,136 +2,166 @@
 //  CardioSetRowView.swift
 //  Doggo
 //
-//  Created by Sorest on 1/5/26.
+//  The cardio "Session Block": one continuous session per exercise — Time +
+//  Distance (or Steps) inputs and a single Complete Session button. No sets,
+//  no set numbers, no Add Set. The single backing WorkoutSet is enforced in
+//  ActiveWorkoutViewModel.
 //
 
 import SwiftUI
 
 struct CardioSetRowView: View {
     @Bindable var set: WorkoutSet
-    var index: Int
     // Keyboard focus owned by ActiveWorkoutView (shared "Done" toolbar).
     var focus: FocusState<WorkoutSetField?>.Binding
 
-    // FIX: Explicitly define the body of the computed property
-    private var cardioMode: String {
-        return self.set.exercise?.cardioType ?? "Distance"
+    private var tracking: CardioTrackingType {
+        self.set.exercise?.cardioTracking ?? .distance
     }
 
-    /// Completed intervals visually recede; the checkmark stays full strength.
+    /// Completed sessions visually recede; the button stays full strength.
     private var completedDim: Double {
         self.set.isCompleted ? 0.55 : 1.0
     }
-    
+
     var body: some View {
-        HStack(spacing: 12) {
-            // 1. Interval Number
-            Text("\(index)")
-                .font(.caption)
-                .bold()
-                .foregroundStyle(.secondary)
-                .frame(width: 20)
-            
-            // 2. Dynamic Input Fields
-            Group {
-                if cardioMode == "Distance" {
-                    // FIELD A: Distance
-                    VStack(spacing: 2) {
-                        Text("Distance")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        
-                        TextField("0", value: $set.distance, format: .number)
-                            .focused(focus, equals: .distance(set.id))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.center)
-                            .font(.headline)
-                            .padding(.vertical, 8)
-                            .background(Color.accentColor.opacity(0.1))
-                            .cornerRadius(8)
-                            .overlay(
-                                Menu {
-                                    Button("mi") { set.unit = "mi" }
-                                    Button("km") { set.unit = "km" }
-                                } label: {
-                                    Text(set.unit)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 4)
-                                        .background(.thinMaterial)
-                                        .cornerRadius(4)
-                                }
-                                .padding(.trailing, 8),
-                                alignment: .trailing
-                            )
-                    }
-                } else if cardioMode == "Steps" {
-                    // FIELD A: Steps
-                    VStack(spacing: 2) {
-                        Text("Steps")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        
-                        TextField("0", value: $set.steps, format: .number)
-                            .focused(focus, equals: .steps(set.id))
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.center)
-                            .font(.headline)
-                            .padding(.vertical, 8)
-                            .background(Color.purple.opacity(0.1))
-                            .cornerRadius(8)
-                            .overlay(
-                                Image(systemName: "shoe.2.fill")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.trailing, 8),
-                                alignment: .trailing
-                            )
-                    }
+        VStack(spacing: Spacing.md) {
+            // MARK: - Session Inputs (driven by the exercise's tracking type)
+            HStack(spacing: Spacing.md) {
+                switch tracking {
+                case .distance:
+                    distanceField
+                case .steps, .floors, .laps:
+                    countField
+                case .timeOnly:
+                    EmptyView() // time is the only metric — give it the full width
                 }
-                
-                // FIELD B: Time (Always shown for both modes, and for "Time" mode)
-                VStack(spacing: 2) {
-                    Text("Time")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    
-                    TextField("0", value: $set.duration, format: .number)
-                        .focused(focus, equals: .time(set.id))
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.center)
-                        .font(.headline)
-                        .padding(.vertical, 8)
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(8)
-                        .overlay(
-                            Text("min")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .padding(.trailing, 8),
-                            alignment: .trailing
-                        )
-                }
+                timeField
             }
-            .frame(maxWidth: .infinity)
             .opacity(completedDim)
 
-            // 3. Completion Checkbox
-            Button(action: {
-                HapticManager.shared.impact(style: .medium)
-                withAnimation(.snappy) {
-                    set.isCompleted.toggle()
-                }
-            }) {
-                Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title)
-                    .foregroundStyle(set.isCompleted ? .green : .gray.opacity(0.3))
-                    .symbolEffect(.bounce, value: set.isCompleted)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(set.isCompleted ? "Interval \(index) completed" : "Mark interval \(index) complete")
+            // MARK: - Complete Session
+            completeButton
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.xs)
+    }
+
+    // MARK: - Fields
+
+    private var distanceField: some View {
+        VStack(spacing: Spacing.xs) {
+            Text("Distance")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            TextField("0", value: $set.distance, format: .number)
+                .focused(focus, equals: .distance(set.id))
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.center)
+                .font(.title3.weight(.bold))
+                .padding(.vertical, 10)
+                .background(Color.accentColor.opacity(0.1))
+                .cornerRadius(8)
+                .overlay(
+                    Menu {
+                        Button("mi") { set.unit = "mi" }
+                        Button("km") { set.unit = "km" }
+                    } label: {
+                        Text(set.unit)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(.thinMaterial)
+                            .cornerRadius(4)
+                    }
+                    .padding(.trailing, Spacing.sm),
+                    alignment: .trailing
+                )
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Shared input for all count-based tracking (steps / floors / laps) —
+    /// the count lives in `set.steps`, the label and icon follow the type.
+    private var countField: some View {
+        VStack(spacing: Spacing.xs) {
+            Text(tracking.metricLabel ?? "Count")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            TextField("0", value: $set.steps, format: .number)
+                .focused(focus, equals: .steps(set.id))
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.title3.weight(.bold))
+                .padding(.vertical, 10)
+                .background(Color.accentColor.opacity(0.1))
+                .cornerRadius(8)
+                .overlay(
+                    Image(systemName: tracking.icon)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.trailing, Spacing.sm),
+                    alignment: .trailing
+                )
+                .accessibilityLabel(tracking.metricLabel ?? "Count")
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var timeField: some View {
+        VStack(spacing: Spacing.xs) {
+            Text("Time")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            TextField("0", value: $set.duration, format: .number)
+                .focused(focus, equals: .time(set.id))
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.center)
+                .font(.title3.weight(.bold))
+                .padding(.vertical, 10)
+                .background(Color.accentColor.opacity(0.1))
+                .cornerRadius(8)
+                .overlay(
+                    Text("min")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.trailing, Spacing.sm),
+                    alignment: .trailing
+                )
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Complete Button
+
+    @ViewBuilder
+    private var completeButton: some View {
+        let label = Label(
+            set.isCompleted ? "Session Complete" : "Complete Session",
+            systemImage: set.isCompleted ? "checkmark.circle.fill" : "circle"
+        )
+        .font(.subheadline.weight(.semibold))
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.xs)
+
+        if set.isCompleted {
+            Button(action: toggleComplete) { label }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+        } else {
+            Button(action: toggleComplete) { label }
+                .buttonStyle(.bordered)
+                .tint(.green)
+        }
+    }
+
+    private func toggleComplete() {
+        HapticManager.shared.impact(style: .medium)
+        withAnimation(.snappy) {
+            set.isCompleted.toggle()
+        }
     }
 }

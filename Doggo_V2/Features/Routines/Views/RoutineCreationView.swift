@@ -307,7 +307,7 @@ struct RoutineItemRow: View {
             VStack(alignment: .leading) {
                 Text(item.exercise?.name ?? "Unknown").font(.headline)
                 HStack {
-                    Text(repSummary(for: item))
+                    Text(item.exercise?.isCardio == true ? "1 session" : repSummary(for: item))
                     if item.supersetID != nil {
                         Text("• Superset").foregroundStyle(.pink).fontWeight(.bold)
                     }
