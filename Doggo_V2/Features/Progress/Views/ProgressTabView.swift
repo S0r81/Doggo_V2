@@ -279,7 +279,7 @@ struct ProgressTabView: View {
                             ForEach(measurements.reversed()) { entry in
                                 LineMark(
                                     x: .value("Date", entry.date),
-                                    y: .value("Weight", Double(displayWeight(entry.weightKG)) ?? 0)
+                                    y: .value("Weight", displayWeightValue(entry.weightKG))
                                 )
                                 .interpolationMethod(.catmullRom)
                                 .symbol(Circle())
@@ -298,8 +298,13 @@ struct ProgressTabView: View {
     }
 
     private func displayWeight(_ kg: Double) -> String {
-        let value = unitSystem == .imperial ? kg * 2.20462 : kg
-        return String(format: "%.1f", value)
+        String(format: "%.1f", displayWeightValue(kg))
+    }
+
+    /// Numeric weight in the display unit — used for chart plotting so we never
+    /// round-trip through a locale-formatted string.
+    private func displayWeightValue(_ kg: Double) -> Double {
+        unitSystem == .imperial ? kg * UnitSystem.poundsPerKilogram : kg
     }
 }
 
@@ -309,6 +314,9 @@ struct ProgressTabView: View {
 
 struct BodyWeightLogSheet: View {
     var entryToEdit: BodyMeasurement? = nil
+    /// Fired after a successful save with (weightKg, date). Lets the nutrition
+    /// tab run its weekly diet check-in off the single, canonical weight log.
+    var onSaved: (Double, Date) -> Void = { _, _ in }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -378,7 +386,7 @@ struct BodyWeightLogSheet: View {
             }
             .onAppear {
                 if let entry = entryToEdit {
-                    let display = unitSystem == .imperial ? entry.weightKG * 2.20462 : entry.weightKG
+                    let display = unitSystem == .imperial ? entry.weightKG * UnitSystem.poundsPerKilogram : entry.weightKG
                     weight = (display * 10).rounded() / 10
                     date = entry.date
                 } else {
@@ -398,7 +406,7 @@ struct BodyWeightLogSheet: View {
             return
         }
 
-        let kg = unitSystem == .imperial ? weight * 0.453592 : weight
+        let kg = unitSystem == .imperial ? weight * UnitSystem.kilogramsPerPound : weight
 
         if let entry = entryToEdit {
             entry.weightKG = kg
@@ -407,9 +415,10 @@ struct BodyWeightLogSheet: View {
             modelContext.insert(BodyMeasurement(date: date, weightKG: kg))
         }
 
-        try? modelContext.save()
+        modelContext.saveLogging()
         BodyMeasurementSync.syncProfile(context: modelContext)
         HapticManager.shared.notification(type: .success)
+        onSaved(kg, date)
         dismiss()
     }
 }
@@ -452,7 +461,7 @@ struct BodyWeightHistorySheet: View {
                     for index in offsets {
                         modelContext.delete(measurements[index])
                     }
-                    try? modelContext.save()
+                    modelContext.saveLogging()
                     BodyMeasurementSync.syncProfile(context: modelContext)
                 }
             }
@@ -476,7 +485,7 @@ struct BodyWeightHistorySheet: View {
     }
 
     private func displayWeight(_ kg: Double) -> String {
-        let value = unitSystem == .imperial ? kg * 2.20462 : kg
+        let value = unitSystem == .imperial ? kg * UnitSystem.poundsPerKilogram : kg
         return String(format: "%.1f", value)
     }
 }
@@ -496,7 +505,7 @@ enum BodyMeasurementSync {
 
         if let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first {
             profile.weightKG = latest.weightKG
-            try? context.save()
+            context.saveLogging()
         }
     }
 }

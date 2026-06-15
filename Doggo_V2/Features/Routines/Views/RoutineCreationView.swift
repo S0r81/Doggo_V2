@@ -191,12 +191,16 @@ struct RoutineCreationView: View {
                         // B. Create Routine Item
                         let newItem = RoutineItem(orderIndex: routineItems.count, exercise: exercise, note: genEx.note)
                         
-                        // C. Add Sets
-                        for i in 0..<genEx.sets {
-                            let tmplSet = RoutineSetTemplate(orderIndex: i, targetReps: genEx.reps)
-                            newItem.templateSets.append(tmplSet)
+                        // C. Add Sets — cardio is a single timed block.
+                        if exercise.isCardio {
+                            newItem.templateSets.append(RoutineSetTemplate(orderIndex: 0, targetReps: max(1, genEx.reps)))
+                        } else {
+                            for i in 0..<genEx.sets {
+                                let tmplSet = RoutineSetTemplate(orderIndex: i, targetReps: genEx.reps)
+                                newItem.templateSets.append(tmplSet)
+                            }
                         }
-                        
+
                         routineItems.append(newItem)
                     }
                     isGenerating = false
@@ -253,9 +257,14 @@ struct RoutineCreationView: View {
     
     private func addExercise(_ exercise: Exercise) {
         let newItem = RoutineItem(orderIndex: routineItems.count, exercise: exercise)
-        for i in 0..<3 {
-            let set = RoutineSetTemplate(orderIndex: i, targetReps: 10)
-            newItem.templateSets.append(set)
+        if exercise.isCardio {
+            // Cardio is one timed session block, not weight × reps. The single
+            // template carries the target duration in minutes (default 20).
+            newItem.templateSets.append(RoutineSetTemplate(orderIndex: 0, targetReps: 20))
+        } else {
+            for i in 0..<3 {
+                newItem.templateSets.append(RoutineSetTemplate(orderIndex: i, targetReps: 10))
+            }
         }
         routineItems.append(newItem)
     }
@@ -307,7 +316,7 @@ struct RoutineItemRow: View {
             VStack(alignment: .leading) {
                 Text(item.exercise?.name ?? "Unknown").font(.headline)
                 HStack {
-                    Text(item.exercise?.isCardio == true ? "1 session" : repSummary(for: item))
+                    Text(cardioOrRepSummary(for: item))
                     if item.supersetID != nil {
                         Text("• Superset").foregroundStyle(.pink).fontWeight(.bold)
                     }
@@ -327,40 +336,28 @@ struct RoutineItemRow: View {
     }
 }
 
+/// "1 session · 20 min" for cardio (one timed block), otherwise the strength
+/// rep summary ("3 × 8").
+func cardioOrRepSummary(for item: RoutineItem) -> String {
+    guard item.exercise?.isCardio == true else { return repSummary(for: item) }
+    let minutes = item.templateSets.sorted { $0.orderIndex < $1.orderIndex }.first?.targetReps ?? 0
+    return minutes > 0 ? "1 session · \(minutes) min" : "1 session"
+}
+
 // MARK: - Subview: Set Configuration Sheet
 struct SetConfigurationView: View {
     @Environment(\.dismiss) var dismiss
     @Bindable var item: RoutineItem
-    
+
+    private var isCardio: Bool { item.exercise?.isCardio == true }
+
     var body: some View {
         NavigationStack {
             List {
-                Section(header: Text("Sets & Reps")) {
-                    if item.templateSets.isEmpty {
-                        Text("No sets configured.").foregroundStyle(.secondary)
-                    } else {
-                        ForEach(item.templateSets.sorted(by: { $0.orderIndex < $1.orderIndex })) { set in
-                            SetRowConfig(set: set)
-                        }
-                        .onDelete { indexSet in
-                            let sortedSets = item.templateSets.sorted(by: { $0.orderIndex < $1.orderIndex })
-                            for index in indexSet {
-                                let setToRemove = sortedSets[index]
-                                if let realIndex = item.templateSets.firstIndex(of: setToRemove) {
-                                    item.templateSets.remove(at: realIndex)
-                                }
-                            }
-                            reindexSets()
-                        }
-                    }
-                    Button("Add Set") {
-                        withAnimation {
-                            let nextIndex = item.templateSets.count
-                            let reps = item.templateSets.last?.targetReps ?? 10
-                            let newSet = RoutineSetTemplate(orderIndex: nextIndex, targetReps: reps)
-                            item.templateSets.append(newSet)
-                        }
-                    }
+                if isCardio {
+                    cardioSection
+                } else {
+                    strengthSection
                 }
                 if let note = item.note, !note.isEmpty {
                     Section(header: Text("Coach's Note")) {
@@ -370,9 +367,95 @@ struct SetConfigurationView: View {
             }
             .navigationTitle(item.exercise?.name ?? "Configure")
             .toolbar { Button("Done") { dismiss() } }
+            .onAppear { normalizeCardioIfNeeded() }
         }
     }
-    
+
+    // MARK: - Cardio (single timed session block)
+
+    @ViewBuilder
+    private var cardioSection: some View {
+        Section {
+            if let set = item.templateSets.first {
+                Stepper(value: Binding(
+                    get: { max(1, set.targetReps) },
+                    set: { set.targetReps = $0 }
+                ), in: 1...300, step: 5) {
+                    HStack {
+                        Label("Target Duration", systemImage: "timer")
+                        Spacer()
+                        Text("\(max(1, set.targetReps)) min")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Cardio Target")
+        } footer: {
+            Text("Cardio is logged as one session. You'll record \(cardioMetricDescription) when you do this workout.")
+        }
+    }
+
+    private var cardioMetricDescription: String {
+        switch item.exercise?.cardioTracking {
+        case .distance: return "time and distance"
+        case .steps: return "time and steps"
+        case .floors: return "time and floors"
+        case .laps: return "time and laps"
+        case .timeOnly, .none: return "your time"
+        }
+    }
+
+    /// Cardio must have exactly one template set. Collapse legacy multi-set
+    /// cardio (created before cardio was special-cased) down to one.
+    private func normalizeCardioIfNeeded() {
+        guard isCardio else { return }
+        let sorted = item.templateSets.sorted { $0.orderIndex < $1.orderIndex }
+        if sorted.isEmpty {
+            item.templateSets.append(RoutineSetTemplate(orderIndex: 0, targetReps: 20))
+        } else if sorted.count > 1 {
+            let keep = sorted[0]
+            keep.orderIndex = 0
+            keep.targetWeight = nil
+            keep.targetRepsUpper = nil
+            item.templateSets = [keep]
+        }
+    }
+
+    // MARK: - Strength (weight × reps)
+
+    @ViewBuilder
+    private var strengthSection: some View {
+        Section(header: Text("Sets & Reps")) {
+            if item.templateSets.isEmpty {
+                Text("No sets configured.").foregroundStyle(.secondary)
+            } else {
+                ForEach(item.templateSets.sorted(by: { $0.orderIndex < $1.orderIndex })) { set in
+                    SetRowConfig(set: set)
+                }
+                .onDelete { indexSet in
+                    let sortedSets = item.templateSets.sorted(by: { $0.orderIndex < $1.orderIndex })
+                    for index in indexSet {
+                        let setToRemove = sortedSets[index]
+                        if let realIndex = item.templateSets.firstIndex(of: setToRemove) {
+                            item.templateSets.remove(at: realIndex)
+                        }
+                    }
+                    reindexSets()
+                }
+            }
+            Button("Add Set") {
+                withAnimation {
+                    let nextIndex = item.templateSets.count
+                    let reps = item.templateSets.last?.targetReps ?? 10
+                    let newSet = RoutineSetTemplate(orderIndex: nextIndex, targetReps: reps)
+                    item.templateSets.append(newSet)
+                }
+            }
+        }
+    }
+
     private func reindexSets() {
         let sortedSets = item.templateSets.sorted(by: { $0.orderIndex < $1.orderIndex })
         for (index, set) in sortedSets.enumerated() { set.orderIndex = index }
@@ -400,7 +483,33 @@ struct SetRowConfig: View {
                 .foregroundStyle(.secondary)
 
             Spacer()
-            Stepper("\(set.targetReps) Reps", value: $set.targetReps, in: 1...100).fixedSize()
+            // Stepping moves the whole target; a range ("6-8") steps both
+            // bounds together. Long-press the label to toggle range mode.
+            Stepper("\(set.repRangeLabel) Reps", value: Binding(
+                get: { set.targetReps },
+                set: { newValue in
+                    if let upper = set.targetRepsUpper {
+                        set.targetRepsUpper = max(newValue + 1, upper + (newValue - set.targetReps))
+                    }
+                    set.targetReps = newValue
+                }
+            ), in: 1...100)
+            .fixedSize()
+            .contextMenu {
+                if set.targetRepsUpper == nil {
+                    Button {
+                        set.targetRepsUpper = set.targetReps + 2
+                    } label: {
+                        Label("Make Rep Range (\(set.targetReps)-\(set.targetReps + 2))", systemImage: "arrow.left.and.right")
+                    }
+                } else {
+                    Button {
+                        set.targetRepsUpper = nil
+                    } label: {
+                        Label("Use Fixed Reps", systemImage: "minus")
+                    }
+                }
+            }
         }
     }
 }

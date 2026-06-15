@@ -12,11 +12,13 @@ struct ProgramBrowserView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [UserProfile]
+    @Query private var allRoutines: [Routine]
     @Query(sort: \CustomProgram.createdAt, order: .reverse) private var customPrograms: [CustomProgram]
 
     @State private var selectedProgram: ProgramDefinition?
     @State private var editingCustomProgram: CustomProgram?
     @State private var showNewProgram = false
+    @State private var showAIGenerator = false
 
     private var orderedPrograms: [ProgramDefinition] {
         guard let profile = profiles.first else { return ProgramCatalog.all }
@@ -43,6 +45,19 @@ struct ProgramBrowserView: View {
                                 CustomProgramCard(program: program)
                             }
                             .buttonStyle(BouncyButtonStyle())
+                            .contextMenu {
+                                // URL is built lazily, only when the menu opens.
+                                if let url = ProgramShareManager.shareURL(for: program, routines: allRoutines) {
+                                    ShareLink(item: url) {
+                                        Label("Share Program", systemImage: "square.and.arrow.up")
+                                    }
+                                }
+                                Button {
+                                    editingCustomProgram = program
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                            }
                         }
 
                         Text("Doggo Programs")
@@ -75,6 +90,15 @@ struct ProgramBrowserView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
+                        showAIGenerator = true
+                    } label: {
+                        Image(systemName: "wand.and.stars")
+                            .foregroundStyle(.purple)
+                    }
+                    .accessibilityLabel("Generate program with AI")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
                         showNewProgram = true
                     } label: {
                         Image(systemName: "plus")
@@ -90,6 +114,9 @@ struct ProgramBrowserView: View {
             }
             .sheet(isPresented: $showNewProgram) {
                 CustomProgramEditorView(programToEdit: nil)
+            }
+            .sheet(isPresented: $showAIGenerator) {
+                AIProgramGeneratorView()
             }
         }
     }
@@ -436,6 +463,15 @@ struct CustomProgramEditorView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                // Share a saved program straight from the editor's nav bar.
+                if let program = programToEdit,
+                   let url = ProgramShareManager.shareURL(for: program, routines: allRoutines) {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ShareLink(item: url) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         save()
@@ -450,7 +486,7 @@ struct CustomProgramEditorView: View {
                 Button("Delete", role: .destructive) {
                     if let program = programToEdit {
                         modelContext.delete(program)
-                        try? modelContext.save()
+                        modelContext.saveLogging()
                     }
                     dismiss()
                 }
@@ -484,7 +520,7 @@ struct CustomProgramEditorView: View {
         if programToEdit == nil {
             modelContext.insert(program)
         }
-        try? modelContext.save()
+        modelContext.saveLogging()
         HapticManager.shared.notification(type: .success)
     }
 
@@ -502,7 +538,7 @@ struct CustomProgramEditorView: View {
             applied += 1
         }
 
-        try? modelContext.save()
+        modelContext.saveLogging()
         HapticManager.shared.notification(type: .success)
         statusMessage = "Scheduled \(applied) day\(applied == 1 ? "" : "s"). Check the planner or the Workout tab."
     }

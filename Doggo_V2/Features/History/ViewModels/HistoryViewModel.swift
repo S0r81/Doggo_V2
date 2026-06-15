@@ -46,7 +46,7 @@ final class HistoryViewModel {
     /// Deletes a workout session
     func deleteSession(_ session: WorkoutSession) async {
         do {
-            try await workoutRepository.delete(session)
+            try await workoutRepository.delete(id: session.persistentModelID)
             // Refresh the list
             await loadHistory()
         } catch {

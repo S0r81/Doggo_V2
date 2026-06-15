@@ -44,6 +44,20 @@ struct ContentView: View {
                     Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(3)
+
+            // Tab 4: Peptides
+            PeptideDashboardView(container: container)
+                .tabItem {
+                    Label("Peptides", systemImage: "syringe.fill")
+                }
+                .tag(4)
+
+            // Tab 5: Nutrition / Diet
+            NutritionTabView()
+                .tabItem {
+                    Label("Diet", systemImage: "fork.knife")
+                }
+                .tag(5)
         }
         // MARK: - THEME FIX 2: Apply Global Accent
         // Instead of .tint(.blue), we ask the theme for the color

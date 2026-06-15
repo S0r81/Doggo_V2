@@ -22,13 +22,9 @@ final class AppContainer {
     lazy var workoutRepository: WorkoutRepositoryProtocol = {
         WorkoutRepository(modelContainer: modelContext.container)
     }()
-    
-    lazy var routineRepository: RoutineRepositoryProtocol = {
-        RoutineRepository(modelContainer: modelContext.container)
-    }()
-    
-    lazy var exerciseRepository: ExerciseRepositoryProtocol = {
-        ExerciseRepository(modelContainer: modelContext.container)
+
+    lazy var peptideRepository: PeptideRepositoryProtocol = {
+        PeptideRepository(modelContainer: modelContext.container)
     }()
     
     // MARK: - Services

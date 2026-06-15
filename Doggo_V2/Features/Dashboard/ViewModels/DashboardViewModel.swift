@@ -211,7 +211,7 @@ class DashboardViewModel {
     
     func getTotalVolume(from sessions: [WorkoutSession], preferredUnit: String) -> String {
         let raw = getTotalVolumeRaw(from: sessions)
-        let val = (preferredUnit == "metric" || preferredUnit == "kg") ? raw * 0.453592 : raw
+        let val = (preferredUnit == "metric" || preferredUnit == "kg") ? raw * UnitSystem.kilogramsPerPound : raw
         let suffix = (preferredUnit == "metric" || preferredUnit == "kg") ? "kg" : "lbs"
         
         if val > 1_000_000 { return String(format: "%.1fM %@", val/1_000_000, suffix) }
@@ -228,7 +228,7 @@ class DashboardViewModel {
                 // initialize distance to 0.0, not nil.)
                 guard set.exercise?.isCardio != true else { continue }
                 var w = set.weight
-                if set.unit == "kg" { w *= 2.20462 }
+                if set.unit == "kg" { w *= UnitSystem.poundsPerKilogram }
                 total += (w * Double(set.reps))
             }
         }

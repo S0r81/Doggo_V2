@@ -64,8 +64,8 @@ struct SetRowView: View {
     }
 
     private var repsPlaceholder: String {
-        if targetTemplate?.targetWeight != nil, let reps = targetTemplate?.targetReps {
-            return "Target: \(reps)"
+        if targetTemplate?.targetWeight != nil, let target = targetTemplate {
+            return "Target: \(target.repRangeLabel)"
         }
         return "Last: \(ghostValues.reps)"
     }

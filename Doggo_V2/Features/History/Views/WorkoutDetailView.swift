@@ -300,15 +300,17 @@ struct ExerciseSectionHeader: View {
                         Image(systemName: "arrow.up").padding(8)
                     }
                     .buttonStyle(.plain)
-                    
+                    .accessibilityLabel("Move exercise up")
+
                     Button(action: onMoveDown) {
                         Image(systemName: "arrow.down").padding(8)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Move exercise down")
                 }
                 .foregroundStyle(.blue)
                 .padding(.trailing, 8)
-                
+
                 // Delete
                 Button(action: onDelete) {
                     Image(systemName: "trash.fill")
@@ -316,6 +318,7 @@ struct ExerciseSectionHeader: View {
                         .padding(8)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Delete exercise")
             } else {
                 // Collapse Arrow
                 Button(action: onToggleCollapse) {

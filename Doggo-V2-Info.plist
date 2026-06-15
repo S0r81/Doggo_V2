@@ -4,5 +4,16 @@
 <dict>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.guavi.Doggo-V2</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>doggov2</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -195,7 +195,7 @@ struct ActiveWorkoutView: View {
 
         var volumeLbs = 0.0
         for set in completed where (set.distance ?? 0) == 0 && set.weight > 0 {
-            let weight = set.unit == "kg" ? set.weight * 2.20462 : set.weight
+            let weight = set.unit == "kg" ? set.weight * UnitSystem.poundsPerKilogram : set.weight
             volumeLbs += weight * Double(set.reps)
         }
 
@@ -203,7 +203,7 @@ struct ActiveWorkoutView: View {
         var parts = ["\(minutes) min", "\(completed.count) sets completed"]
         if volumeLbs > 0 {
             let isMetric = unitSystem == .metric
-            let volume = isMetric ? volumeLbs * 0.453592 : volumeLbs
+            let volume = isMetric ? volumeLbs * UnitSystem.kilogramsPerPound : volumeLbs
             parts.append("\(Int(volume).formatted()) \(isMetric ? "kg" : "lbs") volume")
         }
         return parts.joined(separator: " · ")
@@ -266,6 +266,11 @@ struct ActiveWorkoutView: View {
                     .scrollContentBackground(.hidden) // Make List Transparent
                     .background(Color.background(for: userTheme)) // Apply Theme Background
                     .smoothListAnimation(value: session.sets.count) // Smooth Set Deletion
+                    // Reserve scroll room for the floating rest timer (sized for
+                    // its expanded height, which also clears the collapsed pill)
+                    // so "Add Exercise" can always scroll completely above it.
+                    .contentMargins(.bottom, timerManager.isActive ? 180 : 0, for: .scrollContent)
+                    .animation(.snappy, value: timerManager.isActive)
                     // Swipe down on the list to dismiss the keypad — a reliable
                     // UIKit-backed fallback regardless of the Done bar.
                     .scrollDismissesKeyboard(.interactively)
@@ -780,10 +785,12 @@ struct WorkoutSectionHeader: View {
                         Image(systemName: "arrow.up").font(.caption.bold())
                             .padding(10).contentShape(Rectangle())
                     }.buttonStyle(.plain)
+                    .accessibilityLabel("Move exercise up")
                     Button(action: onMoveDown) {
                         Image(systemName: "arrow.down").font(.caption.bold())
                             .padding(10).contentShape(Rectangle())
                     }.buttonStyle(.plain)
+                    .accessibilityLabel("Move exercise down")
                 }
                 .foregroundStyle(.secondary)
 
@@ -821,6 +828,7 @@ struct WorkoutSectionHeader: View {
                         .foregroundStyle(Color.accentColor)
                         .padding(.leading, 8)
                         .padding(.vertical, 8)
+                        .accessibilityLabel("Exercise options")
                         .contentShape(Rectangle())
                 }
             }

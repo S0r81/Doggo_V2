@@ -14,8 +14,8 @@
 import Foundation
 
 struct AIGeneratedExercise: Codable {
-    let name: String
-    let sets: Int
-    let reps: Int
-    let note: String?
+    var name: String
+    var sets: Int
+    var reps: Int
+    var note: String?
 }

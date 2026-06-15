@@ -19,7 +19,7 @@ enum StrengthMath {
 
     /// Weight normalized to pounds for cross-unit comparisons.
     static func inPounds(_ weight: Double, unit: String) -> Double {
-        unit == "kg" ? weight * 2.20462 : weight
+        unit == "kg" ? weight * UnitSystem.poundsPerKilogram : weight
     }
 
     /// The all-time best (heaviest completed set) for an exercise.

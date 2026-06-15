@@ -8,7 +8,18 @@
 import Foundation
 
 struct GeminiPromptBuilder {
-    
+
+    // MARK: - Shared Naming Contract
+    /// Injected into every prompt that can name an exercise. Names are
+    /// database keys — all four providers (Gemini/Claude/GPT/OpenRouter) must
+    /// emit the exact same shape or generation creates duplicate exercises.
+    static let exerciseNamingRules = """
+    EXERCISE NAMING RULES (STRICT — names are database keys):
+    - Title Case Every Word: "Barbell Bench Press", never "barbell bench press" or "Barbell bench press".
+    - Equipment comes FIRST: "Barbell Bench Press", "Dumbbell Lateral Raise", "Cable Row". NEVER "Bench Press (Barbell)" or "bench press - dumbbell".
+    - Plain words only: no parentheses, brackets, slashes, quotes, or trailing punctuation in any exercise name.
+    """
+
     // MARK: - 1. Coach Analysis Prompt
     static func buildAnalysisPrompt(
         sessions: [WorkoutSession],
@@ -132,7 +143,10 @@ struct GeminiPromptBuilder {
            - Reps: "\(cardioDuration) min"
            - Note: Suggest intensity (e.g. "Zone 2" or "HIIT intervals").
         5. Return RAW JSON ONLY.
-        
+
+        \(exerciseNamingRules)
+        Prefer the exact names from "My Available Exercises" when the movement matches.
+
         JSON Format:
         {
             "routineName": "Routine Name",
@@ -205,8 +219,10 @@ struct GeminiPromptBuilder {
         INSTRUCTIONS:
         1. List 4-7 appropriate exercises.
         2. Provide standard sets/reps (e.g. 3 sets of 10).
-        3. Use standard exercise names (e.g. "Squat", "Bench Press").
-        
+        3. Follow the naming rules below for every exercise name.
+
+        \(exerciseNamingRules)
+
         OUTPUT JSON ONLY:
         [
             { "name": "Exercise Name", "sets": 3, "reps": 10, "note": "Brief tip" }
@@ -214,6 +230,72 @@ struct GeminiPromptBuilder {
         """
     }
     
+    // MARK: - 4b. Full Program Generation Prompt
+    /// Multi-day program for the CustomProgram builder. The JSON contract here
+    /// is what AIGeneratedProgram decodes — keep them in sync.
+    static func buildProgramPrompt(
+        profile: UserProfile?,
+        daysPerWeek: Int,
+        focus: String,
+        availableExercises: [Exercise]
+    ) -> String {
+        let exerciseList = availableExercises.map { $0.name }.joined(separator: ", ")
+
+        var userContext = "No profile on record — assume a healthy general-fitness adult."
+        if let p = profile {
+            userContext = """
+            - Goal: \(p.fitnessGoal)
+            - Experience: \(p.experienceLevel)
+            - Preferred Split: \(p.splitPreference)
+            """
+        }
+
+        let focusLine = focus.trimmingCharacters(in: .whitespaces).isEmpty
+            ? "Coach's choice — pick the best split for this profile."
+            : focus
+
+        return """
+        You are an expert strength coach. Design a complete \(daysPerWeek)-day-per-week training program.
+
+        USER PROFILE:
+        \(userContext)
+
+        USER REQUEST: \(focusLine)
+
+        EXERCISES ALREADY IN MY DATABASE (use these EXACT names when the movement matches):
+        [\(exerciseList)]
+
+        \(exerciseNamingRules)
+
+        INSTRUCTIONS:
+        1. Create EXACTLY \(daysPerWeek) training days. Each day gets a short name (e.g. "Push Day", "Lower Body").
+        2. 4-7 exercises per day, ordered compounds first, isolation last.
+        3. "muscleGroup" must be exactly one of: Chest, Back, Legs, Shoulders, Arms, Core, Cardio.
+        4. "category" must be exactly "Strength" or "Cardio".
+        5. CARDIO exercises MUST set "cardioTracking" to exactly one of: "Distance", "Steps", "Floors", "Laps", "Time".
+           (Running/Cycling/Rowing → "Distance", Stair Climber → "Floors", Swimming → "Laps", Incline Walk → "Steps", Jump Rope/HIIT → "Time")
+           STRENGTH exercises MUST set "cardioTracking" to null.
+        6. "sets" and "reps" are integers. For cardio: "sets" is 1 and "reps" is the duration in minutes.
+        7. "description" is one motivating sentence about the program.
+        8. Return RAW JSON ONLY — no markdown fences, no commentary.
+
+        JSON Format:
+        {
+            "name": "Program Name",
+            "description": "One-sentence summary of the program.",
+            "days": [
+                {
+                    "name": "Push Day",
+                    "exercises": [
+                        { "name": "Barbell Bench Press", "muscleGroup": "Chest", "category": "Strength", "cardioTracking": null, "sets": 4, "reps": 8, "note": "Leave 1-2 reps in reserve" },
+                        { "name": "Treadmill Run", "muscleGroup": "Cardio", "category": "Cardio", "cardioTracking": "Distance", "sets": 1, "reps": 15, "note": "Zone 2 finisher" }
+                    ]
+                }
+            ]
+        }
+        """
+    }
+
     // MARK: - 5. File Import Prompt (Cardio Support Added)
         
         static func buildImportPrompt(
@@ -235,13 +317,15 @@ struct GeminiPromptBuilder {
             1. Identify distinct Routines (e.g. "Day 1", "Push Day").
             2. EXTRACT WORKING SETS ONLY. Ignore generic warm-ups.
             3. MAPPING RULE: Match exercises to my database exactly if possible.
+               If nothing matches, "mappedName" must follow these rules:
+            \(exerciseNamingRules)
             4. CATEGORIZATION:
                - Infer "suggestedMuscle" (e.g. Chest, Legs, Cardio).
                - Infer "suggestedType" (Strength, Cardio, Flexibility).
                - Infer "suggestedCardioType" if it's cardio (Options: "Distance", "Steps", "Time").
             5. EXTRACT METRICS (CRITICAL):
                - "sets": Number of sets.
-               - "reps": Standard rep count (for weights).
+               - "reps": Rep target as a STRING. Keep ranges exactly as written (e.g. "6-8", "12"). Do not collapse a range to one number.
                - "weight": Weight used (if listed).
                - "steps": INT. Extract step count (e.g. "500 steps").
                - "distance": FLOAT. Extract distance (e.g. "5km", "3 miles").

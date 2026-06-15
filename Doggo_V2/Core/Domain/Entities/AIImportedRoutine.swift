@@ -7,7 +7,7 @@ import Foundation
 
 struct AIImportedRoutine: Codable, Identifiable {
     var id: UUID = UUID()
-    let routineName: String
+    var routineName: String
     var exercises: [AIImportedExercise]
     
     enum CodingKeys: String, CodingKey {

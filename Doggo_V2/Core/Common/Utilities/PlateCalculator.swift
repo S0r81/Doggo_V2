@@ -43,6 +43,8 @@ enum BarType: String, CaseIterable, Identifiable {
     case womensOlympic
     case ezCurl
     case smithMachine
+    case noBar
+    case custom
 
     var id: String { rawValue }
 
@@ -52,6 +54,8 @@ enum BarType: String, CaseIterable, Identifiable {
         case .womensOlympic: return "Women's Olympic"
         case .ezCurl: return "EZ Curl"
         case .smithMachine: return "Smith Machine"
+        case .noBar: return "Machine / No Bar"
+        case .custom: return "Custom Weight"
         }
     }
 
@@ -61,15 +65,42 @@ enum BarType: String, CaseIterable, Identifiable {
         case .womensOlympic: return "Slightly shorter and thinner grip"
         case .ezCurl: return "The short zig-zag curl bar"
         case .smithMachine: return "Counterbalanced — varies by machine"
+        case .noBar: return "Cables, pin-loaded or plate machines — no bar weight"
+        case .custom: return "Leg press sleds & machines with their own starting weight"
         }
     }
 
+    /// True when there's no implement weight to subtract — the plate math
+    /// runs against the raw target.
+    var isBarless: Bool { self == .noBar }
+
+    /// True when the starting weight comes from a user-entered value rather
+    /// than a fixed preset.
+    var isCustom: Bool { self == .custom }
+
+    /// The fixed starting weight for preset bars. `.custom` has no intrinsic
+    /// weight — its value is supplied separately, so callers must use
+    /// `resolvedWeight(for:customWeight:)` instead.
     func weight(for unit: UnitSystem) -> Double {
         switch self {
         case .olympic: return unit == .imperial ? 45 : 20
         case .womensOlympic: return unit == .imperial ? 35 : 15
         case .ezCurl: return unit == .imperial ? 20 : 10
         case .smithMachine: return unit == .imperial ? 15 : 7
+        case .noBar: return 0
+        case .custom: return 0
+        }
+    }
+
+    /// Resolves the starting weight, pulling in the separately-stored custom
+    /// value for `.custom`. Keeping the number out of the enum means BarType
+    /// stays a plain String-backed RawRepresentable that can never fail to
+    /// decode from @AppStorage. A negative or missing custom weight is clamped
+    /// to 0 (a barless machine) rather than producing nonsense plate math.
+    func resolvedWeight(for unit: UnitSystem, customWeight: Double) -> Double {
+        switch self {
+        case .custom: return max(0, customWeight)
+        default: return weight(for: unit)
         }
     }
 }

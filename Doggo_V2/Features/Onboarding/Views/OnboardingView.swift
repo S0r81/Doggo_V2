@@ -189,7 +189,7 @@ struct OnboardingView: View {
 
     func finishOnboarding() {
         // Convert Imperial to Metric for internal storage (optional, but cleaner)
-        let weightKG = Double(weight) * 0.453592
+        let weightKG = Double(weight) * UnitSystem.kilogramsPerPound
         let heightCM = Double(height) * 2.54
 
         let profile = UserProfile(

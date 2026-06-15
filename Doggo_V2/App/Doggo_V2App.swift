@@ -23,7 +23,13 @@ struct Doggo_V2App: App {
             AIGeneratedRoutine.self,
             UserProfile.self,
             BodyMeasurement.self,
-            CustomProgram.self
+            CustomProgram.self,
+            PeptideProfile.self,
+            PeptideSchedule.self,
+            PeptideLog.self,
+            NutritionProfile.self,
+            NutritionCheckIn.self,
+            DailyMacroLog.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -42,20 +48,30 @@ struct Doggo_V2App: App {
                 .onAppear {
                     let context = sharedModelContainer.mainContext
                     DataSeeder.seedExercises(context: context)
+                    // Installs the foreground-presentation delegate for peptide
+                    // dose reminders.
+                    _ = PeptideNotificationManager.shared
                 }
         }
         .modelContainer(sharedModelContainer)
     }
 }
 
+// Wraps a decoded program for Identifiable sheet presentation.
+private struct PendingProgramImport: Identifiable {
+    let id = UUID()
+    let program: SharedProgram
+}
+
 // Root View - Handles onboarding check
 struct RootView: View {
     @Environment(\.modelContext) var modelContext
     @Query var profiles: [UserProfile]
-    
+
     @State private var isOnboarding = false
     @State private var container: AppContainer?
-    
+    @State private var pendingImport: PendingProgramImport?
+
     var body: some View {
         Group {
             if isOnboarding {
@@ -72,7 +88,7 @@ struct RootView: View {
             if profiles.isEmpty {
                 isOnboarding = true
             }
-            
+
             // Initialize container
             if container == nil {
                 container = AppContainer(modelContext: modelContext)
@@ -82,6 +98,16 @@ struct RootView: View {
             if newValue {
                 isOnboarding = true
             }
+        }
+        // Stage 2: catch doggov2://import/program?payload=… in any launch state.
+        .onOpenURL { url in
+            if let shared = ProgramShareManager.parse(url) {
+                pendingImport = PendingProgramImport(program: shared)
+            }
+        }
+        // Stage 3: preview + confirm before inserting.
+        .sheet(item: $pendingImport) { pending in
+            ProgramImportSheet(shared: pending.program, container: modelContext.container)
         }
     }
 }

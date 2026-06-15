@@ -264,7 +264,7 @@ struct WeeklyPlannerView: View {
                 let routineName = focus
                 let newRoutine = Routine(name: routineName, note: "AI Generated")
                 modelContext.insert(newRoutine)
-                try? modelContext.save()
+                modelContext.saveLogging()
                 userProfile?.weeklySchedule[day] = newRoutine.id.uuidString
                 
                 print("✨ Auto-populating new routine: \(routineName)")

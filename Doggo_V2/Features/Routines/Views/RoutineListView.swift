@@ -304,13 +304,18 @@ struct RoutineListContent: View {
 
             for template in item.templateSets.sorted(by: { $0.orderIndex < $1.orderIndex }) {
                 newItem.templateSets.append(
-                    RoutineSetTemplate(orderIndex: template.orderIndex, targetReps: template.targetReps)
+                    RoutineSetTemplate(
+                        orderIndex: template.orderIndex,
+                        targetReps: template.targetReps,
+                        targetRepsUpper: template.targetRepsUpper,
+                        targetWeight: template.targetWeight
+                    )
                 )
             }
             modelContext.insert(newItem)
         }
 
-        try? modelContext.save()
+        modelContext.saveLogging()
         HapticManager.shared.impact(style: .light)
     }
 
@@ -324,7 +329,7 @@ struct RoutineListContent: View {
                 profile.weeklySchedule[day] = idString
             }
         }
-        try? modelContext.save()
+        modelContext.saveLogging()
     }
 
     // MARK: - Start Logic
@@ -344,7 +349,7 @@ struct RoutineListContent: View {
                 session.duration = Date().timeIntervalSince(start)
             }
         }
-        try? modelContext.save()
+        modelContext.saveLogging()
         routinePendingStart = nil
         startRoutine(routine)
     }

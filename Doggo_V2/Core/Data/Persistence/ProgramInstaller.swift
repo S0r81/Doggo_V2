@@ -102,7 +102,7 @@ enum ProgramInstaller {
             }
         }
 
-        try? context.save()
+        context.saveLogging()
         return Result(routinesCreated: createdRoutines.count, daysScheduled: daysScheduled)
     }
 
@@ -129,7 +129,7 @@ enum ProgramInstaller {
             context.delete(routine) // cascades items + templates
         }
 
-        try? context.save()
+        context.saveLogging()
         return routines.count
     }
 }

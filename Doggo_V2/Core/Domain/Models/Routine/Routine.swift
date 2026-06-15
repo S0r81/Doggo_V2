@@ -7,7 +7,6 @@
 
 import Foundation
 import SwiftData
-import SwiftUI // Required for Transferable
 
 @Model
 class Routine {
@@ -29,11 +28,9 @@ class Routine {
     }
 }
 
-// MARK: - Drag & Drop Support
-extension Routine: Transferable {
-    static var transferRepresentation: some TransferRepresentation {
-        // We export the Routine's ID as a String so the Planner knows which one was dropped
-        ProxyRepresentation(exporting: \.id.uuidString)
-    }
-}
+// Drag & drop transfers the routine's UUID string directly (see
+// WeeklyPlannerView: `.draggable(routine.id.uuidString)` /
+// `.dropDestination(for: String.self)`), so the @Model itself never needs a
+// Transferable/Sendable conformance — which a PersistentModel can't satisfy
+// under Swift 6.
 

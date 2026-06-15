@@ -175,7 +175,7 @@ struct ExerciseAnalyticsView: View {
             for set in sets {
                 // Normalize weight to LBS for consistent charting
                 var weight = set.weight
-                if set.unit == "kg" { weight *= 2.20462 }
+                if set.unit == "kg" { weight *= UnitSystem.poundsPerKilogram }
                 
                 let estimated1RM = calculateOneRepMax(weight: weight, reps: set.reps)
                 if estimated1RM > max1RM {

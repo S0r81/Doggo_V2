@@ -107,6 +107,29 @@ struct GeminiResponseParser {
         return try JSONDecoder().decode([AIGeneratedExercise].self, from: data)
     }
     
+    // MARK: - 5b. Parse Full Program
+
+    static func parseProgram(_ text: String) throws -> AIGeneratedProgram {
+        guard let start = text.firstIndex(of: "{"),
+              let end = text.lastIndex(of: "}") else {
+            throw ParsingError.noJSON
+        }
+
+        let jsonString = String(text[start...end])
+        guard let data = jsonString.data(using: .utf8) else {
+            throw ParsingError.invalidEncoding
+        }
+
+        guard let program = try? JSONDecoder().decode(AIGeneratedProgram.self, from: data),
+              !program.days.isEmpty,
+              program.days.allSatisfy({ !$0.exercises.isEmpty })
+        else {
+            throw ParsingError.invalidFormat
+        }
+
+        return program
+    }
+
     // MARK: - 6. Parse Analysis (Just clean text)
     
     static func parseAnalysis(_ text: String) -> String {

@@ -86,6 +86,7 @@ struct RoutineGeneratorView: View {
                 if generatedCandidates.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Button(action: { showHistorySheet = true }) { Image(systemName: "clock.arrow.circlepath") }
+                            .accessibilityLabel("Past generated routines")
                     }
                 }
             }
@@ -238,6 +239,7 @@ struct RoutineGeneratorView: View {
                                     .padding(8)
                                     .background(Color.blue.opacity(0.1))
                                     .clipShape(Circle())
+                                    .accessibilityLabel("Swap exercise")
                             }
                             .buttonStyle(.plain)
                         }
@@ -329,9 +331,9 @@ struct RoutineGeneratorView: View {
                 let routineItem = RoutineItem(orderIndex: index, exercise: exerciseObj, note: item.note)
                 routineItem.routine = newRoutine
                 modelContext.insert(routineItem)
+                let range = RepRange.parse(item.reps)
                 for i in 0..<item.sets {
-                    let repCount = Int(item.reps.components(separatedBy: CharacterSet.decimalDigits.inverted).first ?? "10") ?? 10
-                    let template = RoutineSetTemplate(orderIndex: i, targetReps: repCount)
+                    let template = RoutineSetTemplate(orderIndex: i, targetReps: range.lower, targetRepsUpper: range.upper)
                     template.routineItem = routineItem
                     modelContext.insert(template)
                 }

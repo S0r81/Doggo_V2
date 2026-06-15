@@ -152,7 +152,7 @@ struct ProfileSettingsView: View {
                         Text("Weight (lbs)")
                         Spacer()
                         TextField("Lbs", value: $weightLbs, format: .number).keyboardType(.numberPad).multilineTextAlignment(.trailing)
-                            .onChange(of: weightLbs) { _, newValue in profile.weightKG = Double(newValue) * 0.453592 }
+                            .onChange(of: weightLbs) { _, newValue in profile.weightKG = Double(newValue) * UnitSystem.kilogramsPerPound }
                     }
                     HStack {
                         Text("Height (in)")
@@ -165,7 +165,7 @@ struct ProfileSettingsView: View {
             .navigationTitle("Profile")
             .toolbar { Button("Done") { dismiss() } }
             .onAppear {
-                weightLbs = Int(profile.weightKG * 2.20462)
+                weightLbs = Int(profile.weightKG * UnitSystem.poundsPerKilogram)
                 heightInches = Int(profile.heightCM / 2.54)
             }
             // MARK: - Import Pipeline

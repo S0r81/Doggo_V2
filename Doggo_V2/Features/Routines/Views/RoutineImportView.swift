@@ -123,59 +123,118 @@ struct RoutineImportView: View {
     
     var reviewList: some View {
         List {
-            ForEach(importedRoutines) { routine in
-                Section(header: Text(routine.routineName)) {
-                    ForEach(routine.exercises) { item in
-                        Button(action: {
-                            itemToResolve = item
-                        }) {
-                            HStack(alignment: .top, spacing: 12) {
-                                // Superset Indicator
-                                if let label = item.supersetLabel {
-                                    VStack(spacing: 0) {
-                                        Text(label).font(.caption2).bold().foregroundStyle(.white)
-                                            .frame(width: 20, height: 20).background(Circle().fill(Color.pink))
-                                        Rectangle().fill(Color.pink.opacity(0.3)).frame(width: 2).frame(maxHeight: .infinity)
-                                    }
-                                } else { Color.clear.frame(width: 20) }
-                                
-                                statusIcon(for: item.confidence).padding(.top, 4)
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if item.confidence != "High" {
-                                        Text(item.originalName).font(.headline).foregroundStyle(.red)
-                                        HStack {
-                                            Text("Tap to Resolve")
-                                                .font(.caption2).bold().foregroundStyle(.white)
-                                                .padding(4).background(Color.red).cornerRadius(4)
-                                            if let m = item.suggestedMuscle {
-                                                Text("AI: \(m)")
-                                                    .font(.caption2).foregroundStyle(.secondary)
-                                            }
-                                        }
-                                    } else {
-                                        Text(item.mappedName).font(.headline)
-                                        if item.originalName != item.mappedName {
-                                            Text("Matches: \"\(item.originalName)\"").font(.caption).foregroundStyle(.secondary)
-                                        }
-                                    }
-                                    
-                                    HStack {
-                                        Text("\(item.sets) x \(item.reps)").font(.caption).bold()
-                                            .padding(4).background(Color.gray.opacity(0.1)).cornerRadius(4)
-                                        if let note = item.note {
-                                            Text(note).font(.caption).foregroundStyle(.orange).lineLimit(1)
-                                        }
-                                    }
+            ForEach($importedRoutines) { $routine in
+                Section {
+                    ForEach($routine.exercises) { $item in
+                        importRow($item)
+                            .listRowSeparator(.hidden)
+                    }
+                    .onDelete { offsets in
+                        $routine.wrappedValue.exercises.remove(atOffsets: offsets)
+                    }
+
+                    if routine.exercises.isEmpty {
+                        Text("All exercises removed — this routine won't be saved.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    HStack {
+                        TextField("Routine Name", text: $routine.routineName)
+                            .textInputAutocapitalization(.words)
+                        Button(role: .destructive) {
+                            withAnimation {
+                                importedRoutines.removeAll { $0.id == routine.id }
+                            }
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.caption)
+                        }
+                        .accessibilityLabel("Remove \(routine.routineName)")
+                    }
+                } footer: {
+                    Text("Tap any field to edit. Swipe left on an exercise to remove it.")
+                }
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// Low-confidence rows keep the tap-to-resolve flow; matched rows are
+    /// edited inline (name, sets, reps) and saved through the same
+    /// sanitize-and-create pipeline as the AI program generator.
+    private func importRow(_ item: Binding<AIImportedExercise>) -> some View {
+        HStack(alignment: .top, spacing: Spacing.md) {
+            // Superset Indicator
+            if let label = item.wrappedValue.supersetLabel {
+                VStack(spacing: 0) {
+                    Text(label).font(.caption2).bold().foregroundStyle(.white)
+                        .frame(width: 20, height: 20).background(Circle().fill(Color.pink))
+                    Rectangle().fill(Color.pink.opacity(0.3)).frame(width: 2).frame(maxHeight: .infinity)
+                }
+            } else { Color.clear.frame(width: 20) }
+
+            statusIcon(for: item.wrappedValue.confidence).padding(.top, 4)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                if item.wrappedValue.confidence != "High" {
+                    Button {
+                        itemToResolve = item.wrappedValue
+                    } label: {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            Text(item.wrappedValue.originalName).font(.headline).foregroundStyle(.red)
+                            HStack {
+                                Text("Tap to Resolve")
+                                    .font(.caption2).bold().foregroundStyle(.white)
+                                    .padding(4).background(Color.red).cornerRadius(4)
+                                if let m = item.wrappedValue.suggestedMuscle {
+                                    Text("AI: \(m)")
+                                        .font(.caption2).foregroundStyle(.secondary)
                                 }
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
                             }
                         }
-                        .buttonStyle(.plain)
-                        .listRowSeparator(.hidden)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    HStack(spacing: Spacing.sm) {
+                        TextField("Exercise Name", text: item.mappedName)
+                            .font(.headline)
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled()
+                        Button {
+                            itemToResolve = item.wrappedValue
+                        } label: {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Remap exercise")
+                    }
+                    if item.wrappedValue.originalName != item.wrappedValue.mappedName {
+                        Text("From: \"\(item.wrappedValue.originalName)\"").font(.caption).foregroundStyle(.secondary)
                     }
                 }
+
+                HStack(spacing: Spacing.sm) {
+                    TextField("Sets", value: item.sets, format: .number)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 36)
+                        .padding(.vertical, 2)
+                        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6))
+                    Text("×").foregroundStyle(.tertiary)
+                    TextField("Reps", text: item.reps)
+                        .keyboardType(.numbersAndPunctuation)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 56)
+                        .padding(.vertical, 2)
+                        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6))
+                    if let note = item.wrappedValue.note {
+                        Text(note).font(.caption).foregroundStyle(.orange).lineLimit(1)
+                    }
+                }
+                .font(.caption)
             }
         }
     }
@@ -190,29 +249,39 @@ struct RoutineImportView: View {
     // MARK: - Logic
     
     func createAllMissing() {
+        // Cache by canonical key so two unknown rows with the same name
+        // (or "bench press" vs "Bench Press!") create one exercise.
+        var createdThisBatch: [String: Exercise] = [:]
+
         withAnimation {
             for rIndex in 0..<importedRoutines.count {
                 for eIndex in 0..<importedRoutines[rIndex].exercises.count {
                     var item = importedRoutines[rIndex].exercises[eIndex]
-                    
+
                     if item.confidence != "High" {
-                        let rawName = item.originalName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        
-                        // 1. SAFETY CHECK: Does it exist in DB already? (Case Insensitive)
-                        if let existing = allExercises.first(where: { $0.name.localizedCaseInsensitiveCompare(rawName) == .orderedSame }) {
+                        let cleanName = GenerateProgramUseCase.sanitizeExerciseName(item.originalName)
+                        guard !cleanName.isEmpty else { continue }
+                        let key = GenerateProgramUseCase.canonicalKey(cleanName)
+
+                        // 1. SAFETY CHECK: Does an equivalent exist already?
+                        if let existing = allExercises.first(where: { GenerateProgramUseCase.canonicalKey($0.name) == key }) ?? createdThisBatch[key] {
                             item.mappedName = existing.name
                             item.confidence = "High"
                         } else {
                             // 2. Create NEW
-                            let newEx = Exercise(name: rawName)
+                            let newEx = Exercise(name: cleanName)
                             newEx.muscleGroup = item.suggestedMuscle ?? "Other"
                             newEx.type = item.suggestedType ?? "Strength"
+                            if newEx.type == "Cardio", let tracking = item.suggestedCardioType {
+                                newEx.cardioTracking = CardioTrackingType.from(tracking)
+                            }
                             modelContext.insert(newEx)
-                            
+                            createdThisBatch[key] = newEx
+
                             item.mappedName = newEx.name
                             item.confidence = "High"
                         }
-                        
+
                         importedRoutines[rIndex].exercises[eIndex] = item
                     }
                 }
@@ -294,32 +363,42 @@ struct RoutineImportView: View {
         // LOCAL CACHE: Stores exercises created during THIS save session
         // Prevents duplicates if the routine lists the same new exercise twice (e.g., once for warmups)
         var sessionCreatedExercises: [String: Exercise] = [:]
-        
+
         for draft in importedRoutines {
-            let routine = Routine(name: draft.routineName)
+            // Edited drafts can leave blank names or emptied routines behind.
+            let saveablePlans = draft.exercises.filter {
+                !$0.mappedName.contains("Unknown")
+                    && !GenerateProgramUseCase.sanitizeExerciseName($0.mappedName).isEmpty
+            }
+            guard !saveablePlans.isEmpty else { continue }
+
+            let routineName = draft.routineName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let routine = Routine(name: routineName.isEmpty ? "Imported Routine" : routineName)
             modelContext.insert(routine)
             var supersetMap: [String: UUID] = [:]
-            
-            for (idx, item) in draft.exercises.enumerated() {
-                // Skip if still unknown
-                if item.mappedName.contains("Unknown") { continue }
-                
+
+            for (idx, item) in saveablePlans.enumerated() {
                 var ssID: UUID? = nil
                 if let lbl = item.supersetLabel {
                     if let id = supersetMap[lbl] { ssID = id }
                     else { let id = UUID(); supersetMap[lbl] = id; ssID = id }
                 }
-                
-                // --- EXERCISE RESOLUTION (The Fix) ---
+
+                // --- EXERCISE RESOLUTION ---
+                // Hand-edited names go through the same pipeline as the AI
+                // program generator: sanitize → exact match → canonical
+                // token-set match → create.
                 let exerciseToUse: Exercise
-                let targetName = item.mappedName.trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                // 1. Check DB
-                if let match = allExercises.first(where: { $0.name.localizedCaseInsensitiveCompare(targetName) == .orderedSame }) {
+                let targetName = GenerateProgramUseCase.sanitizeExerciseName(item.mappedName)
+                let canonicalKey = GenerateProgramUseCase.canonicalKey(targetName)
+
+                // 1. Check DB (exact, then token-set equivalent)
+                if let match = allExercises.first(where: { $0.name.localizedCaseInsensitiveCompare(targetName) == .orderedSame })
+                    ?? allExercises.first(where: { GenerateProgramUseCase.canonicalKey($0.name) == canonicalKey }) {
                     exerciseToUse = match
                 }
                 // 2. Check Local Session Cache (created 0.01s ago?)
-                else if let cached = sessionCreatedExercises[targetName.lowercased()] {
+                else if let cached = sessionCreatedExercises[canonicalKey] {
                     exerciseToUse = cached
                 }
                 // 3. Create NEW (and cache it)
@@ -328,27 +407,32 @@ struct RoutineImportView: View {
                     // Try to carry over suggestion if available, else fallback
                     newEx.muscleGroup = item.suggestedMuscle ?? "Other"
                     newEx.type = item.suggestedType ?? "Strength"
-                    
+                    if newEx.type == "Cardio", let tracking = item.suggestedCardioType {
+                        newEx.cardioTracking = CardioTrackingType.from(tracking)
+                    }
+
                     modelContext.insert(newEx)
                     exerciseToUse = newEx
-                    sessionCreatedExercises[targetName.lowercased()] = newEx
+                    sessionCreatedExercises[canonicalKey] = newEx
                 }
                 // -------------------------------------
-                
+
                 let rItem = RoutineItem(orderIndex: idx, exercise: exerciseToUse, note: item.note, supersetID: ssID)
                 rItem.routine = routine
                 modelContext.insert(rItem)
-                
-                let repString = item.reps.components(separatedBy: CharacterSet.decimalDigits.inverted).first(where: { !$0.isEmpty }) ?? "10"
-                let reps = Int(repString) ?? 10
-                
-                for i in 0..<item.sets {
-                    let t = RoutineSetTemplate(orderIndex: i, targetReps: reps)
+
+                // "6-8" survives as a real range: lower bound is the working
+                // target, upper bound is the progression bar.
+                let range = RepRange.parse(item.reps)
+
+                for i in 0..<max(1, item.sets) {
+                    let t = RoutineSetTemplate(orderIndex: i, targetReps: range.lower, targetRepsUpper: range.upper)
                     t.routineItem = rItem
                     modelContext.insert(t)
                 }
             }
         }
+        modelContext.saveLogging()
         dismiss()
     }
 }

@@ -61,21 +61,33 @@ enum ProgressionEngine {
             // Only standard strength units participate
             guard workingWeight > 0, unit == "lbs" || unit == "kg" else { continue }
 
-            // Success = every set completed at or above its template's reps
-            let allTargetsHit = !sets.isEmpty && sets.enumerated().allSatisfy { index, set in
-                guard set.isCompleted else { return false }
-                guard !templates.isEmpty else { return set.reps > 0 }
-                let target = templates[min(index, templates.count - 1)].targetReps
-                return set.reps >= target
+            // Double progression: a rep range ("6-8") only proposes weight
+            // once every set reaches the TOP of the range; landing inside the
+            // range is normal rep-building — neither success nor failure.
+            // Fixed targets behave exactly as before (top == floor).
+            func template(at index: Int) -> RoutineSetTemplate? {
+                templates.isEmpty ? nil : templates[min(index, templates.count - 1)]
             }
 
-            if allTargetsHit {
+            let allCompleted = !sets.isEmpty && sets.allSatisfy(\.isCompleted)
+
+            let allAtTop = allCompleted && sets.enumerated().allSatisfy { index, set in
+                guard let target = template(at: index) else { return set.reps > 0 }
+                return set.reps >= target.successReps
+            }
+            let allInRange = allCompleted && sets.enumerated().allSatisfy { index, set in
+                guard let target = template(at: index) else { return set.reps > 0 }
+                return set.reps >= target.targetReps
+            }
+
+            if allAtTop {
                 item.successStreak += 1
                 item.failStreak = 0
 
                 let increment = increment(for: exercise, isMetric: unit == "kg")
                 let proposed = roundToPlate(workingWeight + increment, isKg: unit == "kg")
-                let repsText = templates.first.map { " × \($0.targetReps)" } ?? ""
+                let repsText = templates.first.map { " × \($0.repRangeLabel)" } ?? ""
+                let isRange = templates.contains { $0.targetRepsUpper != nil }
 
                 proposals.append(ProgressionProposal(
                     item: item,
@@ -85,8 +97,13 @@ enum ProgressionEngine {
                     proposedReps: nil,
                     unit: unit,
                     kind: .increase,
-                    reason: "Hit every set\(repsText) — time to add weight"
+                    reason: isRange
+                        ? "Topped the rep range\(repsText) on every set — time to add weight"
+                        : "Hit every set\(repsText) — time to add weight"
                 ))
+            } else if allInRange {
+                // Inside the range but below the top: the next win is more
+                // reps at this weight, so streaks stay where they are.
             } else {
                 item.failStreak += 1
                 item.successStreak = 0
@@ -116,14 +133,16 @@ enum ProgressionEngine {
             for template in proposal.item.templateSets {
                 template.targetWeight = proposal.proposedWeight
                 if let reps = proposal.proposedReps {
+                    // An explicit rep prescription replaces any range.
                     template.targetReps = reps
+                    template.targetRepsUpper = nil
                 }
             }
             // A fresh target means a fresh slate
             proposal.item.successStreak = 0
             proposal.item.failStreak = 0
         }
-        try? context.save()
+        context.saveLogging()
     }
 
     // MARK: - Helpers

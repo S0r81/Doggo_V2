@@ -1,7 +1,7 @@
 import Foundation
 
 final class GeminiAPIClient: AIClientProtocol {
-    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
+    private let baseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-pro:generateContent"
 
     init() {}
 
@@ -39,6 +39,11 @@ enum APIError: LocalizedError {
     case invalidKey
     case invalidURL
     case rateLimitExceeded
+    /// A rate limit (429) where the provider told us *why* (e.g. OpenRouter's
+    /// free-model daily/minute caps). The detail is surfaced verbatim.
+    case rateLimited(detail: String)
+    /// Any other non-200 where the provider returned an explanatory message.
+    case providerError(message: String, statusCode: Int)
     case httpError(statusCode: Int)
     case parseError
 
@@ -52,6 +57,10 @@ enum APIError: LocalizedError {
             return "Invalid URL"
         case .rateLimitExceeded:
             return "⚠️ The Coach is busy (Rate Limit). Please try again in a minute."
+        case .rateLimited(let detail):
+            return "⚠️ Rate limited: \(detail)"
+        case .providerError(let message, let code):
+            return "⚠️ \(message) (\(code))"
         case .httpError(let code):
             return "Server error: \(code)"
         case .parseError:

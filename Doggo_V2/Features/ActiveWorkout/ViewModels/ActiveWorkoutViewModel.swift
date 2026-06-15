@@ -127,7 +127,7 @@ class ActiveWorkoutViewModel {
             }
             
             // Optional: Save immediately to trigger UI refresh
-            try? context.save()
+            context.saveLogging()
         }
     
     // MARK: - Set Management
@@ -189,12 +189,12 @@ class ActiveWorkoutViewModel {
             }
         }
         
-        try? context.save()
+        context.saveLogging()
     }
     
     func completeSet(_ set: WorkoutSet) {
         set.isCompleted = true
-        try? modelContext?.save()
+        modelContext?.saveLogging()
     }
     
     func deleteSet(_ set: WorkoutSet) {
@@ -207,7 +207,7 @@ class ActiveWorkoutViewModel {
         stopWorkoutTimer()
         currentSession = nil
         context.delete(session) // cascade removes its sets
-        try? context.save()
+        context.saveLogging()
     }
 
     func finishWorkout() async {

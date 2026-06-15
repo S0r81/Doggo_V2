@@ -28,10 +28,10 @@ struct ExerciseDetailView: View {
     func normalizedWeight(_ set: WorkoutSet) -> Double {
         if preferredSystem == .imperial {
             // Want LBS. If set is KG, convert.
-            return set.unit == "kg" ? set.weight * 2.20462 : set.weight
+            return set.unit == "kg" ? set.weight * UnitSystem.poundsPerKilogram : set.weight
         } else {
             // Want KG. If set is LBS, convert.
-            return set.unit == "lbs" ? set.weight * 0.453592 : set.weight
+            return set.unit == "lbs" ? set.weight * UnitSystem.kilogramsPerPound : set.weight
         }
     }
     

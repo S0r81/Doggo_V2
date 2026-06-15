@@ -111,7 +111,7 @@ struct ExerciseCreationView: View {
             exercise.type = selectedType
             exercise.muscleGroup = selectedMuscle
             exercise.cardioType = trackingRaw
-            try? modelContext.save()
+            modelContext.saveLogging()
         } else {
             let newExercise = Exercise(
                 name: name,

@@ -33,8 +33,9 @@ final class OpenRouterAPIClient: AIClientProtocol {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        // Optional attribution headers (shown on openrouter.ai activity)
+        // Attribution headers — recommended by OpenRouter for activity ranking.
         request.addValue("Doggo", forHTTPHeaderField: "X-Title")
+        request.addValue("https://doggo.app", forHTTPHeaderField: "HTTP-Referer")
 
         let body: [String: Any] = [
             "model": Self.model,
@@ -45,9 +46,32 @@ final class OpenRouterAPIClient: AIClientProtocol {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await AIClientSupport.makeSession().data(for: request)
-        try AIClientSupport.validate(response)
 
-        // OpenAI-compatible response:
+        // OpenRouter encodes the *reason* in the response body (free-model
+        // daily/minute caps, an upstream provider error, etc.). Read it before
+        // throwing so the user sees the actual cause, not a generic message.
+        let serverMessage = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+            .flatMap { ($0?["error"] as? [String: Any])?["message"] as? String }
+
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            switch http.statusCode {
+            case 401, 403:
+                throw APIError.invalidKey
+            case 429:
+                // `:free` models are capped at ~20 req/min and 50/day (1000/day
+                // with ≥$10 of credits); the body usually says which.
+                throw APIError.rateLimited(
+                    detail: serverMessage ?? "OpenRouter throttled this model. Free (:free) models have tight per-minute and daily caps — switch to the paid model slug or add credits."
+                )
+            default:
+                throw APIError.providerError(
+                    message: serverMessage ?? "OpenRouter request failed",
+                    statusCode: http.statusCode
+                )
+            }
+        }
+
+        // OpenAI-compatible success:
         // { "choices": [ { "message": { "content": "..." } } ] }
         if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
            let choices = json["choices"] as? [[String: Any]],
@@ -57,12 +81,10 @@ final class OpenRouterAPIClient: AIClientProtocol {
             return text
         }
 
-        // OpenRouter reports routing/model errors in an "error" object with a
-        // 200-level status in some cases — surface the message if present.
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let error = json["error"] as? [String: Any],
-           let message = error["message"] as? String {
-            print("OpenRouter error: \(message)")
+        // Some routing/model errors arrive with a 200 status but an "error"
+        // object instead of choices — surface that message too.
+        if let serverMessage {
+            throw APIError.providerError(message: serverMessage, statusCode: 200)
         }
 
         throw APIError.parseError
