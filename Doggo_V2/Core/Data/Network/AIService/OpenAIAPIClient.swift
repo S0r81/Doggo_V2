@@ -31,18 +31,12 @@ final class OpenAIAPIClient: AIClientProtocol {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await AIClientSupport.makeSession().data(for: request)
-        try AIClientSupport.validate(response)
-
         // Response: { "choices": [ { "message": { "content": "..." } } ] }
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let message = choices.first?["message"] as? [String: Any],
-           let text = message["content"] as? String,
-           !text.isEmpty {
-            return text
+        return try await AIClientSupport.execute(request) { data in
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let choices = json["choices"] as? [[String: Any]],
+                  let message = choices.first?["message"] as? [String: Any] else { return nil }
+            return message["content"] as? String
         }
-
-        throw APIError.parseError
     }
 }

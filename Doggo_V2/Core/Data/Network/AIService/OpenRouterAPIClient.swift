@@ -45,48 +45,14 @@ final class OpenRouterAPIClient: AIClientProtocol {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await AIClientSupport.makeSession().data(for: request)
-
-        // OpenRouter encodes the *reason* in the response body (free-model
-        // daily/minute caps, an upstream provider error, etc.). Read it before
-        // throwing so the user sees the actual cause, not a generic message.
-        let serverMessage = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
-            .flatMap { ($0?["error"] as? [String: Any])?["message"] as? String }
-
-        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-            switch http.statusCode {
-            case 401, 403:
-                throw APIError.invalidKey
-            case 429:
-                // `:free` models are capped at ~20 req/min and 50/day (1000/day
-                // with ≥$10 of credits); the body usually says which.
-                throw APIError.rateLimited(
-                    detail: serverMessage ?? "OpenRouter throttled this model. Free (:free) models have tight per-minute and daily caps — switch to the paid model slug or add credits."
-                )
-            default:
-                throw APIError.providerError(
-                    message: serverMessage ?? "OpenRouter request failed",
-                    statusCode: http.statusCode
-                )
-            }
+        // The shared executor reads OpenRouter's error body and surfaces the
+        // real reason (free-model caps, upstream errors). Response is
+        // OpenAI-compatible: { "choices": [ { "message": { "content": "..." } } ] }.
+        return try await AIClientSupport.execute(request) { data in
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let choices = json["choices"] as? [[String: Any]],
+                  let message = choices.first?["message"] as? [String: Any] else { return nil }
+            return message["content"] as? String
         }
-
-        // OpenAI-compatible success:
-        // { "choices": [ { "message": { "content": "..." } } ] }
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let message = choices.first?["message"] as? [String: Any],
-           let text = message["content"] as? String,
-           !text.isEmpty {
-            return text
-        }
-
-        // Some routing/model errors arrive with a 200 status but an "error"
-        // object instead of choices — surface that message too.
-        if let serverMessage {
-            throw APIError.providerError(message: serverMessage, statusCode: 200)
-        }
-
-        throw APIError.parseError
     }
 }

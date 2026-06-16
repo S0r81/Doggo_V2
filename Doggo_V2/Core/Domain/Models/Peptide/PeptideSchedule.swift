@@ -154,10 +154,6 @@ extension PeptideSchedule {
     }
 
     static func weekdayName(for date: Date, calendar: Calendar) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: date)
+        return AppFormatters.weekday.string(from: date)
     }
 }

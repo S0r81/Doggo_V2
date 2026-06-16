@@ -15,22 +15,15 @@ final class GeminiAPIClient: AIClientProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["contents": [["parts": [["text": prompt]]]]])
 
-        let body: [String: Any] = ["contents": [["parts": [["text": prompt]]]]]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await AIClientSupport.makeSession().data(for: request)
-        try AIClientSupport.validate(response)
-
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let candidates = json["candidates"] as? [[String: Any]],
-           let content = candidates.first?["content"] as? [String: Any],
-           let parts = content["parts"] as? [[String: Any]],
-           let text = parts.first?["text"] as? String {
-            return text
+        return try await AIClientSupport.execute(request) { data in
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let candidates = json["candidates"] as? [[String: Any]],
+                  let content = candidates.first?["content"] as? [String: Any],
+                  let parts = content["parts"] as? [[String: Any]] else { return nil }
+            return parts.first?["text"] as? String
         }
-
-        throw APIError.parseError
     }
 }
 

@@ -378,9 +378,7 @@ struct ActiveWorkoutView: View {
     /// Today's routine from the user's weekly schedule, if one is assigned.
     private var todaysPlannedRoutine: Routine? {
         guard let schedule = profiles.first?.weeklySchedule else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        let dayName = formatter.string(from: Date())
+        let dayName = AppFormatters.weekday.string(from: Date())
         guard let idString = schedule[dayName], let uuid = UUID(uuidString: idString) else { return nil }
         return routines.first { $0.id == uuid }
     }

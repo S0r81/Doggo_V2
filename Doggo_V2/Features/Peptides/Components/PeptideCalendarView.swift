@@ -40,10 +40,7 @@ struct PeptideCalendarView: View {
     }
 
     private var monthTitle: String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: monthStart)
+        return AppFormatters.monthYear.string(from: monthStart)
     }
 
     /// Weekday header letters, ordered to the locale's first weekday.

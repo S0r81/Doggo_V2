@@ -165,9 +165,7 @@ struct WeeklyPlannerView: View {
     }
     
     func getRoutineForToday() -> Routine? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        let dayName = formatter.string(from: Date())
+        let dayName = AppFormatters.weekday.string(from: Date())
         return getRoutine(for: dayName)
     }
     

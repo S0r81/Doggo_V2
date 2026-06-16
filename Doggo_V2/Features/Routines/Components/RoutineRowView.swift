@@ -37,9 +37,7 @@ func repSummary(for item: RoutineItem) -> String {
 let weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 func todayWeekdayName() -> String {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "EEEE"
-    return formatter.string(from: Date())
+    return AppFormatters.weekday.string(from: Date())
 }
 
 // MARK: - Routine Row

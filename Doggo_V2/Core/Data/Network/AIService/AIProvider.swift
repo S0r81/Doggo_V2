@@ -101,13 +101,14 @@ final class AIClientRouter: AIClientProtocol {
 // MARK: - Shared Helpers
 
 enum AIClientSupport {
-    /// Session with generous timeouts — routine generation can be slow.
-    static func makeSession() -> URLSession {
+    /// One shared session (connection pooling + TLS reuse). Generous timeouts —
+    /// routine/program generation can be slow.
+    static let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 180
         config.timeoutIntervalForResource = 180
         return URLSession(configuration: config)
-    }
+    }()
 
     static func key(for provider: AIProvider) throws -> String {
         guard let key = KeychainManager.shared.retrieveKey(for: provider), !key.isEmpty else {
@@ -116,13 +117,38 @@ enum AIClientSupport {
         return key
     }
 
-    static func validate(_ response: URLResponse) throws {
-        guard let http = response as? HTTPURLResponse else { return }
-        if http.statusCode == 429 { throw APIError.rateLimitExceeded }
-        if http.statusCode == 401 || http.statusCode == 403 { throw APIError.invalidKey }
-        if http.statusCode != 200 {
-            print("\(AIProvider.current.label) API Error: \(http.statusCode)")
-            throw APIError.httpError(statusCode: http.statusCode)
+    /// Sends a request and parses it, with uniform error handling for ALL
+    /// providers. Every client just builds the request and supplies a `parse`
+    /// closure — so improvements (like surfacing the provider's real error
+    /// message) apply everywhere instead of one client at a time.
+    ///
+    /// Gemini / OpenAI / Anthropic / OpenRouter all report failures as
+    /// `{ "error": { "message": "..." } }`, so one extractor covers them.
+    static func execute(_ request: URLRequest, parse: (Data) -> String?) async throws -> String {
+        let (data, response) = try await session.data(for: request)
+
+        let serverMessage = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+            .flatMap { ($0?["error"] as? [String: Any])?["message"] as? String }
+
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            switch http.statusCode {
+            case 401, 403:
+                throw APIError.invalidKey
+            case 429:
+                throw APIError.rateLimited(
+                    detail: serverMessage ?? "\(AIProvider.current.label) is throttling requests. Wait a minute, or switch model/provider in Settings."
+                )
+            default:
+                throw APIError.providerError(
+                    message: serverMessage ?? "\(AIProvider.current.label) request failed",
+                    statusCode: http.statusCode
+                )
+            }
         }
+
+        if let text = parse(data), !text.isEmpty { return text }
+        // 200 with an error object instead of content.
+        if let serverMessage { throw APIError.providerError(message: serverMessage, statusCode: 200) }
+        throw APIError.parseError
     }
 }

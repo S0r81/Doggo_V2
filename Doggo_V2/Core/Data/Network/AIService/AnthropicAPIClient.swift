@@ -33,22 +33,15 @@ final class AnthropicAPIClient: AIClientProtocol {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await AIClientSupport.makeSession().data(for: request)
-        try AIClientSupport.validate(response)
-
         // Response: { "content": [ { "type": "text", "text": "..." }, ... ] }
         // Concatenate all text blocks (thinking blocks etc. are skipped).
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let content = json["content"] as? [[String: Any]] {
-            let text = content
+        return try await AIClientSupport.execute(request) { data in
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let content = json["content"] as? [[String: Any]] else { return nil }
+            return content
                 .filter { ($0["type"] as? String) == "text" }
                 .compactMap { $0["text"] as? String }
                 .joined()
-            if !text.isEmpty {
-                return text
-            }
         }
-
-        throw APIError.parseError
     }
 }

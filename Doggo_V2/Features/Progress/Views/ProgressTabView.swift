@@ -25,9 +25,13 @@ struct ProgressTabView: View {
     @State private var showWeightLog = false
     @State private var showWeightHistory = false
 
-    private var records: [StrengthMath.PersonalRecord] {
-        StrengthMath.personalRecords(from: sessions)
-    }
+    // Memoized aggregates. These scan the ENTIRE workout history, so computing
+    // them in `body`/computed vars re-walked everything on every render. Now
+    // they recompute only when `sessions` actually changes.
+    @State private var records: [StrengthMath.PersonalRecord] = []
+    @State private var muscleGroups: [(group: String, sets: Int)] = []
+    @State private var thisMonthCount = 0
+    @State private var streak = 0
 
     var body: some View {
         NavigationStack {
@@ -44,6 +48,7 @@ struct ProgressTabView: View {
             .background(Color.background(for: userTheme))
             .navigationTitle("Progress")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: sessions, initial: true) { _, _ in recomputeStats() }
             .sheet(isPresented: $showWeightLog) {
                 BodyWeightLogSheet()
                     .presentationDetents([.medium])
@@ -57,21 +62,28 @@ struct ProgressTabView: View {
     // MARK: - Training Summary
 
     private var trainingSummary: some View {
-        let calendar = Calendar.current
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
-        let thisMonth = sessions.filter { $0.date >= monthStart }.count
-        let streak = DashboardViewModel().getCurrentStreak(from: sessions)
-
-        return VStack(alignment: .leading, spacing: Spacing.md) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             SectionHeader("This Month")
 
             HStack(spacing: Spacing.lg) {
-                summaryTile(value: "\(thisMonth)", label: "Workouts", icon: "dumbbell.fill")
+                summaryTile(value: "\(thisMonthCount)", label: "Workouts", icon: "dumbbell.fill")
                 summaryTile(value: "\(streak)", label: "Day Streak", icon: "flame.fill")
                 summaryTile(value: "\(records.count)", label: "Tracked PRs", icon: "trophy.fill")
             }
             .padding(.horizontal)
         }
+    }
+
+    /// Rebuilds the memoized aggregates from the current sessions. Called once
+    /// on appear and again only when `sessions` changes.
+    private func recomputeStats() {
+        let calendar = Calendar.current
+        records = StrengthMath.personalRecords(from: sessions)
+        let twoWeeksAgo = calendar.date(byAdding: .day, value: -14, to: Date()) ?? Date()
+        muscleGroups = StrengthMath.setsPerMuscleGroup(from: sessions, since: twoWeeksAgo)
+        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
+        thisMonthCount = sessions.filter { $0.date >= monthStart }.count
+        streak = DashboardViewModel().getCurrentStreak(from: sessions)
     }
 
     private func summaryTile(value: String, label: String, icon: String) -> some View {
@@ -167,8 +179,7 @@ struct ProgressTabView: View {
 
     @ViewBuilder
     private var muscleBalance: some View {
-        let twoWeeksAgo = Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date()
-        let groups = StrengthMath.setsPerMuscleGroup(from: sessions, since: twoWeeksAgo)
+        let groups = muscleGroups
         let maxSets = groups.first?.sets ?? 1
 
         if !groups.isEmpty {

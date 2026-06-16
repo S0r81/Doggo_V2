@@ -103,9 +103,7 @@ class DashboardViewModel {
                 if let dayDate = calendar.date(byAdding: .day, value: j, to: weekStart) {
                     let count = sessions.filter { calendar.isDate($0.date, inSameDayAs: dayDate) }.count
                     
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "E"
-                    let name = formatter.string(from: dayDate)
+                    let name = AppFormatters.weekdayShort.string(from: dayDate)
                     
                     days.append(DailyCount(day: name, count: count, date: dayDate))
                 }
@@ -113,8 +111,7 @@ class DashboardViewModel {
             
             // Create Page Label
             let endOfWeek = calendar.date(byAdding: .day, value: 6, to: weekStart)!
-            let fmt = DateFormatter()
-            fmt.dateFormat = "MMM d"
+            let fmt = AppFormatters.monthDay
             let label = i == 0 ? "This Week" : "\(fmt.string(from: weekStart)) - \(fmt.string(from: endOfWeek))"
             
             pages.append(WeekPage(label: label, days: days))
@@ -159,10 +156,7 @@ class DashboardViewModel {
                     }
                     
                     let vol = getTotalVolumeRaw(from: weekSessions)
-                    let fmt = DateFormatter()
-                    fmt.dateFormat = "MMM d"
-                    
-                    weeks.append(WeeklyVolume(weekLabel: fmt.string(from: weekStart), volume: vol, date: weekStart))
+                    weeks.append(WeeklyVolume(weekLabel: AppFormatters.monthDay.string(from: weekStart), volume: vol, date: weekStart))
                 }
             }
             
