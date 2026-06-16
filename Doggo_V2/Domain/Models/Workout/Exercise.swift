@@ -8,7 +8,7 @@ import Foundation
 
 /// Typed view over the stored `type` string — cardio and strength flow
 /// through completely different logging UIs.
-enum ExerciseCategory {
+nonisolated enum ExerciseCategory {
     case strength
     case cardio
 }
@@ -16,7 +16,7 @@ enum ExerciseCategory {
 /// How a cardio exercise is measured. Backed by the existing `cardioType`
 /// String column — raw values match the legacy stored strings ("Distance",
 /// "Steps", "Time"), so no SwiftData migration is needed.
-enum CardioTrackingType: String, Codable, CaseIterable, Identifiable {
+nonisolated enum CardioTrackingType: String, Codable, CaseIterable, Identifiable {
     case distance = "Distance"
     case steps = "Steps"
     case floors = "Floors"

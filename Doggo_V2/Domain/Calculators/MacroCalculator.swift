@@ -25,20 +25,20 @@ import Foundation
 
 // MARK: - Inputs
 
-enum BiologicalSex: String, Sendable, CaseIterable {
+nonisolated enum BiologicalSex: String, Sendable, CaseIterable {
     case male
     case female
 }
 
 /// Normal-protein diet (<1.6 g/kg) vs high-protein diet (≥1.6 g/kg) — the book's
 /// NP/HP split that keys both Table 1 and Table 2.
-enum ProteinPreference: String, Sendable, CaseIterable {
+nonisolated enum ProteinPreference: String, Sendable, CaseIterable {
     case normal
     case high
 }
 
 /// Body-fat classification per Table 1 boundaries (p.130).
-enum BodyFatClass: String, Sendable, CaseIterable {
+nonisolated enum BodyFatClass: String, Sendable, CaseIterable {
     case lean
     case normal
     case overweight
@@ -48,7 +48,7 @@ enum BodyFatClass: String, Sendable, CaseIterable {
 /// Standard activity multipliers applied to BMR to estimate maintenance (TDEE).
 /// The book stresses maintenance is best found empirically (p.126); this is the
 /// formula fallback when no tracking history exists.
-enum ActivityLevel: String, Sendable, CaseIterable {
+nonisolated enum ActivityLevel: String, Sendable, CaseIterable {
     case sedentary
     case light
     case moderate
@@ -66,7 +66,7 @@ enum ActivityLevel: String, Sendable, CaseIterable {
     }
 }
 
-struct DietInput: Sendable {
+nonisolated struct DietInput: Sendable {
     var weightKg: Double
     var bodyFatPercent: Double
     var sex: BiologicalSex
@@ -103,7 +103,7 @@ struct DietInput: Sendable {
 
 // MARK: - Output
 
-struct DietPrescription: Sendable {
+nonisolated struct DietPrescription: Sendable {
     let classification: BodyFatClass
 
     /// Table 1 split of where the lost weight comes from.
@@ -138,7 +138,7 @@ struct DietPrescription: Sendable {
 
 // MARK: - Engine
 
-enum MacroCalculator {
+nonisolated enum MacroCalculator {
 
     // Rate-of-loss guardrails (p.128, p.139).
     static let minWeeklyLossRate = 0.004

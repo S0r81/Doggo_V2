@@ -336,7 +336,7 @@ struct PeptideDashboardView: View {
         let id = profile.persistentModelID
         let unit = profile.schedule?.doseUnit ?? .mcg
         Task {
-            try? await container.peptideRepository.logDose(profileID: id, doseMcg: dose, doseUnit: unit, date: stamp, note: nil)
+            _ = try? await container.peptideRepository.logDose(profileID: id, doseMcg: dose, doseUnit: unit, date: stamp, note: nil)
             await MainActor.run { HapticManager.shared.notification(type: .success) }
         }
     }

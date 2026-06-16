@@ -338,7 +338,7 @@ struct NutritionDashboardView: View {
         let repository = NutritionRepository(modelContainer: modelContext.container)
         let id = profile.persistentModelID
         Task {
-            try? await repository.startReverseDiet(profileID: id)
+            _ = try? await repository.startReverseDiet(profileID: id)
             await MainActor.run {
                 HapticManager.shared.notification(type: .success)
                 isStartingReverse = false

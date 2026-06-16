@@ -10,7 +10,7 @@
 
 import Foundation
 
-enum ExerciseSanitizer {
+nonisolated enum ExerciseSanitizer {
 
     /// "  bench press (barbell)!! " → "Bench Press Barbell" — strips anything
     /// that isn't a letter/digit/space/hyphen, collapses whitespace, then

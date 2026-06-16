@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct CSVImporter {
+nonisolated struct CSVImporter {
 
     // MARK: - Intermediate Models
     // Sendable value types — these cross from the parsing task into the

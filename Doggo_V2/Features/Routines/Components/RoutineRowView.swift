@@ -34,7 +34,10 @@ func repSummary(for item: RoutineItem) -> String {
     return reps.joined(separator: " / ") + " reps" + weightSuffix
 }
 
-let weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+/// Canonical Monday-first weekday order, shared app-wide (schedules, importers,
+/// peptide cycles). `nonisolated` so non-main-actor code (e.g. @ModelActor
+/// importers) can read this immutable constant without hopping to the main actor.
+nonisolated let weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 func todayWeekdayName() -> String {
     return AppFormatters.weekday.string(from: Date())
