@@ -54,7 +54,7 @@
 		15E227522F33C522005FAD06 /* Doggo_V2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doggo_V2.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E227612F33C524005FAD06 /* Doggo_V2Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Doggo_V2Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E2276B2F33C524005FAD06 /* Doggo_V2UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Doggo_V2UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		15E229532F350B79005FAD06 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Secrets.xcconfig; path = Doggo_V2/Core/Data/Network/AIService/Secrets.xcconfig; sourceTree = "<group>"; };
+		15E229532F350B79005FAD06 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Secrets.xcconfig; path = Doggo_V2/Data/Networking/Secrets.xcconfig; sourceTree = "<group>"; };
 		922AAB142FDA754100F7B8E6 /* DoggoWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DoggoWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		922AAB162FDA754100F7B8E6 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		922AAB182FDA754100F7B8E6 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -64,7 +64,7 @@
 		15E229AA2F350B79005FAD06 /* Exceptions for "Doggo_V2" folder in "Doggo_V2" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Core/Data/Network/AIService/Secrets.xcconfig,
+				Data/Networking/Secrets.xcconfig,
 			);
 			target = 15E227512F33C522005FAD06 /* Doggo_V2 */;
 		};
@@ -78,7 +78,7 @@
 		922AAB392FDA770400F7B8E6 /* Exceptions for "Doggo_V2" folder in "DoggoWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Core/Common/Utilities/DoggoActivityAttributes.swift,
+				Services/DoggoActivityAttributes.swift,
 			);
 			target = 922AAB132FDA754100F7B8E6 /* DoggoWidgetExtension */;
 		};
@@ -416,7 +416,7 @@
 		15E227732F33C524005FAD06 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReferenceAnchor = 15E227542F33C522005FAD06 /* Doggo_V2 */;
-			baseConfigurationReferenceRelativePath = Core/Data/Network/AIService/Secrets.xcconfig;
+			baseConfigurationReferenceRelativePath = Data/Networking/Secrets.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -482,7 +482,7 @@
 		15E227742F33C524005FAD06 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReferenceAnchor = 15E227542F33C522005FAD06 /* Doggo_V2 */;
-			baseConfigurationReferenceRelativePath = Core/Data/Network/AIService/Secrets.xcconfig;
+			baseConfigurationReferenceRelativePath = Data/Networking/Secrets.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;

@@ -47,19 +47,4 @@ class KeychainManager {
         ]
         SecItemDelete(query as CFDictionary)
     }
-
-    // MARK: - Legacy (pre-multi-provider; the original key was Gemini's,
-    // and the account name is unchanged so existing keys keep working)
-
-    func save(key: String) {
-        save(key: key, for: .gemini)
-    }
-
-    func retrieveKey() -> String? {
-        retrieveKey(for: .gemini)
-    }
-
-    func deleteKey() {
-        deleteKey(for: .gemini)
-    }
 }

@@ -6,15 +6,6 @@ final class AppContainer {
     
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
-        
-        // MARK: - API Key Migration
-        // If Keychain is empty, try to migrate the legacy hardcoded key
-        if KeychainManager.shared.retrieveKey() == nil {
-            if let legacyKey = Bundle.main.object(forInfoDictionaryKey: "GeminiAPIKey") as? String, !legacyKey.isEmpty {
-                print("🔑 Migrating legacy API Key to Keychain...")
-                KeychainManager.shared.save(key: legacyKey)
-            }
-        }
     }
     
     // MARK: - Repositories

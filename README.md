@@ -48,8 +48,14 @@ Built with SwiftUI + SwiftData. No accounts, no servers — your data stays on y
 - Xcode 26+, iOS 17+
 
 ### Run in the Simulator
-1. Clone and open `Doggo_V2.xcodeproj`
-2. Select the `Doggo_V2` scheme, pick an iPhone simulator, and press **Run** (⌘R)
+1. Clone, then create the (gitignored) base config from the template:
+   ```sh
+   cp Doggo_V2/Data/Networking/Secrets.example.xcconfig \
+      Doggo_V2/Data/Networking/Secrets.xcconfig
+   ```
+   No keys needed in it — AI keys are entered in-app. The file just needs to exist.
+2. Open `Doggo_V2.xcodeproj`
+3. Select the `Doggo_V2` scheme, pick an iPhone simulator, and press **Run** (⌘R)
 
 ### Install on Your iPhone (free — no paid developer account needed)
 
@@ -79,20 +85,33 @@ Everything except the AI features works fully offline with no key.
 
 ```
 Doggo_V2/
-├── App/            Entry point, tab navigation, onboarding gate
-├── Core/
-│   ├── Common/     DI container, theme system, keychain, haptics, rest timer
-│   ├── Data/       SwiftData repositories + AI clients (one per provider)
-│   └── Domain/     SwiftData models (WorkoutSession, Exercise, Routine, …)
-├── Features/       Dashboard · ActiveWorkout · Routines · ExerciseList ·
-│                   History · Profile · Onboarding  (Views + ViewModels)
-├── Shared/         Reusable components, cards, charts, modifiers
-└── DoggoWidget/    Live Activity extension (rest timer countdown)
+├── App/            @main entry, root tab shell, onboarding gate, DI wiring
+├── DesignSystem/   Theme (colors/spacing), reusable Components, Modifiers
+├── Features/       One folder per screen — Views + ViewModels
+│                   Dashboard · ActiveWorkout · Routines · ExerciseList ·
+│                   History · Progress · Nutrition · Peptides · Profile · Onboarding
+├── Domain/         Business core, no UIKit/SwiftUI
+│   ├── Models/      SwiftData @Model entities (WorkoutSession, Exercise, Routine, …)
+│   ├── Entities/    Plain value types & DTOs (AI payloads, WeeklyPlan, stats)
+│   ├── Calculators/ Pure math — StrengthMath, PlateCalculator, ProgressionEngine, …
+│   └── UseCases/    Workout + AI orchestration
+├── Data/
+│   ├── Repositories/ @ModelActor data access (value-in / Sendable-out)
+│   ├── Networking/   One thin HTTP client per AI provider + Secrets.xcconfig
+│   ├── ImportExport/ CSV import, data export, document picking
+│   └── Persistence/  ModelContainer seeding, program catalog, save helpers
+├── Services/       Cross-cutting runtime singletons — Keychain, notifications,
+│                   haptics, audio, rest timer, sharing, Live Activity attributes
+├── Common/         DI container, constants, protocols, extensions, formatters
+├── Resources/      Assets.xcassets
+└── DoggoWidget/    Live Activity extension (rest-timer countdown)
 ```
 
-- **SwiftData** for persistence (all UI reads/writes go through the main context)
-- **MVVM-ish** feature modules with an `AppContainer` for dependency injection
-- **Provider-agnostic AI layer**: prompts and parsers work on plain text, so each provider only needs a small HTTP client behind a shared `AIClientProtocol`; an `AIClientRouter` resolves the selected provider at request time
+- **SwiftData** for persistence; writes funnel through `@ModelActor` repositories so no `@Model` ever crosses an actor boundary (value in, `Sendable` out).
+- **Feature modules** are self-contained (Views + ViewModels), wired through an `AppContainer` for dependency injection.
+- **Provider-agnostic AI layer**: prompts and parsers work on plain text, so each provider only needs a small HTTP client behind a shared `AIClientProtocol`; an `AIClientRouter` resolves the selected provider at request time, and a shared `AIClientSupport.execute` centralizes the `URLSession`, timeouts, and error mapping.
+
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the layer boundaries, the repository pattern, and a step-by-step guide to adding a feature.
 
 ## Privacy
 
