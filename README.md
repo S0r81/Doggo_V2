@@ -37,8 +37,19 @@ Built with SwiftUI + SwiftData. No accounts, no servers — your data stays on y
 - History grouped by month with search
 - CSV export / import
 
+### 🥗 Nutrition / Diet Planner
+- Guided onboarding turns your weight, body-fat, sex, age, activity, and goal rate into personalized daily calorie + macro targets
+- Macro math engine derived from a published fat-loss protocol (Norton & Hill, *Fat Loss Forever*) — BMR, deficit multipliers, protein targets, and rate-of-loss bands
+- Daily macro logging with a quick-log sheet, plus a nutrition history view
+- Stall detection and one-tap **reverse diet** when a cut plateaus
+
+### 💉 Peptide Tracker
+- **Reconstitution calculator** — enter vial amount, reconstitution volume, and target dose to get an exact "pull to X units" on the syringe
+- Schedules by **daily**, **specific weekdays**, or **on/off cycles**, with local reminder notifications
+- Dose logging with a syringe visual and a calendar that shows logged vs. scheduled days at a glance
+
 ### 🎨 Polish
-- Three themes: Light, Dark, and **Nordic**
+- Four themes: Light, Dark, **Nordic**, and **Gruvbox**
 - Haptics and sound throughout
 - VoiceOver labels on controls and charts
 
