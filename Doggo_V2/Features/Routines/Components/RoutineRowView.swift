@@ -90,7 +90,7 @@ struct RoutineRowView: View {
     private var lastPerformed: Date? {
         let routineID = routine.id
         return completedSessions.first { session in
-            session.sets.contains { $0.routineItem?.routine?.id == routineID }
+            session.sets.contains { $0.routineID == routineID }
         }?.date
     }
 

@@ -168,7 +168,7 @@ struct RoutineListContent: View {
         var map: [UUID: Date] = [:]
         for session in completedSessions { // newest first — first write wins
             for set in session.sets {
-                if let routineID = set.routineItem?.routine?.id, map[routineID] == nil {
+                if let routineID = set.routineID, map[routineID] == nil {
                     map[routineID] = session.date
                 }
             }

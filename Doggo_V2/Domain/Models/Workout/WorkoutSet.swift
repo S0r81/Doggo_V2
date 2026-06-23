@@ -29,8 +29,18 @@ class WorkoutSet {
     @Relationship(inverse: \Exercise.sets)
     var exercise: Exercise?
     
+    // Inverse declared on RoutineItem.workoutSets (deleteRule .nullify), so
+    // deleting a RoutineItem detaches this link instead of leaving it dangling.
     var routineItem: RoutineItem?
-    
+
+    // Denormalized id of the routine this set was performed under. The Lift
+    // tab's "last performed" lookup reads this instead of faulting
+    // routineItem?.routine — so the tab stays safe even against legacy sets
+    // whose RoutineItem was deleted before the inverse rule existed. nil for
+    // sets logged before this field was added (they simply don't contribute a
+    // "last performed" date — a graceful degrade, never a crash).
+    var routineID: UUID?
+
     init(weight: Double, reps: Int, orderIndex: Int, unit: String = "lbs") {
         self.id = UUID()
         self.weight = weight

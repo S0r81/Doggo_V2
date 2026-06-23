@@ -90,6 +90,7 @@ class ActiveWorkoutViewModel {
                     set.exercise = exercise
                     set.workoutSession = newSession
                     set.routineItem = item
+                    set.routineID = routine.id
                     context.insert(set)
                 } else if sortedTemplates.isEmpty {
                     globalOrderIndex += 1
@@ -97,6 +98,7 @@ class ActiveWorkoutViewModel {
                     set.exercise = exercise
                     set.workoutSession = newSession
                     set.routineItem = item
+                    set.routineID = routine.id
                     context.insert(set)
                 } else {
                     for template in sortedTemplates {
@@ -105,6 +107,7 @@ class ActiveWorkoutViewModel {
                         realSet.exercise = exercise
                         realSet.workoutSession = newSession
                         realSet.routineItem = item
+                        realSet.routineID = routine.id
                         context.insert(realSet)
                     }
                 }

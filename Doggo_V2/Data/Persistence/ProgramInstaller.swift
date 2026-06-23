@@ -115,21 +115,39 @@ enum ProgramInstaller {
         let descriptor = FetchDescriptor<Routine>(
             predicate: #Predicate<Routine> { $0.sourceProgram == programID }
         )
-        guard let routines = try? context.fetch(descriptor), !routines.isEmpty else { return 0 }
-
-        // Clear schedule entries pointing at these routines
-        let routineIDs = Set(routines.map { $0.id.uuidString })
-        if let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first {
-            for (day, id) in profile.weeklySchedule where routineIDs.contains(id) {
-                profile.weeklySchedule.removeValue(forKey: day)
-            }
+        guard let routines = try? context.fetch(descriptor), !routines.isEmpty else {
+            // Nothing from this program, but still sweep any stale schedule slots.
+            pruneSchedule(context: context)
+            return 0
         }
 
+        // Delete this program's routines. The cascade removes their RoutineItems
+        // and RoutineSetTemplates; RoutineItem.workoutSets is .nullify, so logged
+        // workout history is detached (WorkoutSet.routineItem -> nil), never
+        // deleted and never left dangling. Shared/library Exercises are untouched
+        // (RoutineItem.exercise defaults to .nullify).
         for routine in routines {
-            context.delete(routine) // cascades items + templates
+            context.delete(routine)
         }
-
         context.saveLogging()
+
+        // Drop every weekly-schedule slot that no longer resolves to a surviving
+        // routine — the ones we just removed plus any stale slots left behind by
+        // earlier edits or deletions — then persist, so the graph can't be left
+        // half-cleaned.
+        pruneSchedule(context: context)
+
         return routines.count
+    }
+
+    /// Removes weekly-schedule entries whose routine UUID no longer maps to an
+    /// existing Routine. Idempotent and safe to call after any routine removal.
+    private static func pruneSchedule(context: ModelContext) {
+        guard let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first else { return }
+        let liveIDs = Set(((try? context.fetch(FetchDescriptor<Routine>())) ?? []).map { $0.id.uuidString })
+        let staleDays = profile.weeklySchedule.filter { !liveIDs.contains($0.value) }.map(\.key)
+        guard !staleDays.isEmpty else { return }
+        for day in staleDays { profile.weeklySchedule.removeValue(forKey: day) }
+        context.saveLogging()
     }
 }
