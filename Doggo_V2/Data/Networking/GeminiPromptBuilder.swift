@@ -21,57 +21,30 @@ struct GeminiPromptBuilder {
     """
 
     // MARK: - 1. Coach Analysis Prompt
+    /// Report-mode prompt. Grounding (stats + recent log) and the user's standing
+    /// "What Coach knows" context both come from `CoachPromptBuilder` — the single
+    /// source shared with chat, so the two modes can never drift. With no context
+    /// items the prompt matches the long-standing report behavior.
     static func buildAnalysisPrompt(
         sessions: [WorkoutSession],
-        profile: UserProfile?
+        profile: UserProfile?,
+        contextItems: [CoachContextItem] = []
     ) -> String {
-        let stats = calculateStats(from: sessions)
-        let recentHistory = sessions.sorted { $0.date > $1.date }.prefix(10)
-        var historyString = ""
-        
-        for session in recentHistory {
-            let date = session.date.formatted(date: .numeric, time: .omitted)
-            historyString += "- \(date): \(session.name) (\(Int(session.duration/60)) min)\n"
-            
-            let sortedSets = session.sets.sorted { $0.orderIndex < $1.orderIndex }
-            let heavySets = sortedSets.filter { $0.weight > 0 }.prefix(8)
-            
-            for set in heavySets {
-                if let name = set.exercise?.name {
-                    historyString += "  * \(name): \(Int(set.weight)) \(set.unit) x \(set.reps)\n"
-                }
-            }
-        }
-        
-        var userContext = "User Profile: Unknown"
-        if let p = profile {
-            userContext = """
-            User Profile:
-            - Goal: \(p.fitnessGoal)
-            - Experience: \(p.experienceLevel)
-            """
-        }
-        
+        let grounding = CoachPromptBuilder.trainingDataBlock(sessions: sessions, profile: profile)
+        let knowledge = CoachPromptBuilder.knowledgeBlock(contextItems: contextItems)
+        let knowledgeSection = knowledge.isEmpty ? "" : "\n\(knowledge)\n"
+
         return """
         You are an elite strength and conditioning coach. Analyze this user's recent training data.
-        
-        \(userContext)
-        
-        QUANTITATIVE DATA (Last 30 Days):
-        - Workout Consistency: \(stats.workoutsPerWeek) sessions/week
-        - Avg Session Duration: \(stats.avgDuration)
-        - Muscle Focus Split: \(stats.muscleSplit)
-        - Total Volume: \(stats.totalVolume) lbs
-        
-        RECENT ACTIVITY LOG (Newest first):
-        \(historyString)
-        
+
+        \(grounding)
+        \(knowledgeSection)
         YOUR MISSION:
         1. Compare "Muscle Focus" vs "Goal".
         2. Analyze Consistency & Duration.
         3. Check for OVERLAP/RECOVERY issues.
         4. Provide 3 specific, actionable bullet points for next week (e.g. specific rep ranges, exercises to add/remove).
-        
+
         Keep the advice short, punchy, and data-backed. Use Markdown.
         """
     }
@@ -387,47 +360,4 @@ struct GeminiPromptBuilder {
         """
     }
     
-    // MARK: - Helper: Calculate Stats
-    private static func calculateStats(from sessions: [WorkoutSession]) -> AnalysisStats {
-        let oneMonthAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
-        let recentSessions = sessions.filter { $0.date > oneMonthAgo }
-        
-        let freq = String(format: "%.1f", Double(recentSessions.count) / 4.0)
-        
-        let totalSeconds = recentSessions.reduce(0) { $0 + $1.duration }
-        let avgSeconds = recentSessions.isEmpty ? 0 : totalSeconds / Double(recentSessions.count)
-        let avgDur = "\(Int(avgSeconds / 60)) min"
-        
-        var vol: Double = 0
-        var muscleCounts: [String: Int] = [:]
-        
-        for session in recentSessions {
-            for set in session.sets {
-                let w = set.unit == "kg" ? set.weight * 2.2 : set.weight
-                vol += (w * Double(set.reps))
-                
-                if let muscle = set.exercise?.muscleGroup {
-                    muscleCounts[muscle, default: 0] += 1
-                }
-            }
-        }
-        
-        let sortedMuscles = muscleCounts.sorted { $0.value > $1.value }.prefix(3)
-        let splitString = sortedMuscles.map { "\($0.key) (\($0.value) sets)" }.joined(separator: ", ")
-        
-        return AnalysisStats(
-            workoutsPerWeek: freq,
-            avgDuration: avgDur,
-            muscleSplit: splitString.isEmpty ? "General Full Body" : splitString,
-            totalVolume: "\(Int(vol))"
-        )
-    }
-}
-
-// MARK: - Helper Struct
-private struct AnalysisStats {
-    let workoutsPerWeek: String
-    let avgDuration: String
-    let muscleSplit: String
-    let totalVolume: String
 }

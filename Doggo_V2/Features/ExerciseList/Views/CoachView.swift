@@ -6,13 +6,28 @@
 import SwiftUI
 import SwiftData
 
+/// The Coach has two modes. Report (default) preserves the original on-demand
+/// data-grounded report; Chat is a persistent conversational thread. The choice
+/// is persisted, so it survives relaunch — but defaults to Report for existing
+/// users and first open.
+enum CoachMode: String, CaseIterable, Identifiable {
+    case report
+    case chat
+    var id: String { rawValue }
+    var label: String { self == .report ? "Report" : "Chat" }
+}
+
 struct CoachView: View {
     let container: AppContainer
     let sessions: [WorkoutSession]
-    
+
     @Environment(\.dismiss) var dismiss
     @Query var profiles: [UserProfile]
     @Query var routines: [Routine]
+    @Query var contextItems: [CoachContextItem]
+
+    @AppStorage("coachMode") private var coachMode: CoachMode = .report
+    @AppStorage("coachThreadID") private var coachThreadIDString: String = ""
 
     @AppStorage("cachedCoachAdvice") private var cachedAdvice: String = ""
     @AppStorage("cachedCoachTimestamp") private var cachedTimestamp: Double = 0
@@ -20,117 +35,51 @@ struct CoachView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var isCopied = false
+    @State private var showContextEditor = false
 
     // MARK: - Plan Tune-Up State
     @State private var isTuning = false
     @State private var tuneProposals: [ProgressionProposal] = []
     @State private var tuneError: String?
-    
+
+    private var threadID: UUID {
+        UUID(uuidString: coachThreadIDString) ?? CoachView.sessionThread
+    }
+    /// Stable fallback for the (one-frame) window before onAppear persists a
+    /// thread id; messages saved under it still resolve consistently this launch.
+    private static let sessionThread = UUID()
+
+    private var activeContextCount: Int { CoachContextAssembler.activeCount(contextItems) }
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    
-                    if isLoading {
-                        loadingView
-                    } else if let error = errorMessage {
-                        ContentUnavailableView {
-                            Label("Coach Unavailable", systemImage: "exclamationmark.triangle")
-                        } description: {
-                            Text(error)
-                        } actions: {
-                            Button("Try Again") { generateReport(force: true) }
-                                .buttonStyle(.borderedProminent)
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Coach's Report")
-                                    .font(.title2).bold()
-                                Spacer()
-                                if cachedTimestamp > 0 {
-                                    Text("Generated: \(Date(timeIntervalSince1970: cachedTimestamp).formatted(date: .omitted, time: .shortened))")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            
-                            if cachedAdvice.isEmpty {
-                                ContentUnavailableView("Ready to Coach", systemImage: "dumbbell.fill", description: Text("I will analyze your volume, consistency, and muscle split to give you specific advice."))
-                                    .padding()
-                            } else {
-                                Text(LocalizedStringKey(cachedAdvice))
-                                    .padding()
-                                    .cardSurface(cornerRadius: 12)
-                                    .contextMenu {
-                                        Button {
-                                            copyToClipboard()
-                                        } label: {
-                                            Label("Copy Report", systemImage: "doc.on.doc")
-                                        }
-                                    }
-                            }
-
-                            // MARK: - AI Plan Tune-Up
-                            if !routines.isEmpty {
-                                Button {
-                                    tunePlan()
-                                } label: {
-                                    if isTuning {
-                                        HStack {
-                                            ProgressView().controlSize(.small)
-                                            Text("Reviewing your plan…")
-                                        }
-                                        .font(.subheadline.weight(.semibold))
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, Spacing.sm)
-                                    } else {
-                                        Label("Tune My Plan", systemImage: "wand.and.stars")
-                                            .font(.subheadline.weight(.semibold))
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, Spacing.sm)
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(.purple)
-                                .disabled(isTuning || isLoading)
-
-                                Text("Proposes new target weights for your routines based on the last 4 weeks. You review every change before it applies.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding()
+            VStack(spacing: 0) {
+                Picker("Coach Mode", selection: $coachMode) {
+                    ForEach(CoachMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
                     }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, Spacing.sm)
+
+                switch coachMode {
+                case .report:
+                    reportContent
+                case .chat:
+                    CoachChatView(container: container, sessions: sessions, threadID: threadID)
                 }
             }
-            .navigationTitle("AI Analysis")
+            .navigationTitle("AI Coach")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { generateReport(force: true) }) {
-                        Image(systemName: "sparkles")
-                    }
-                    .disabled(isLoading)
-                    .accessibilityLabel("Regenerate report")
-                }
-
-                ToolbarItemGroup(placement: .confirmationAction) {
-                    if !cachedAdvice.isEmpty {
-                        Button(action: copyToClipboard) {
-                            Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                                .contentTransition(.symbolEffect(.replace))
-                        }
-                        .disabled(isLoading)
-                        .accessibilityLabel(isCopied ? "Copied" : "Copy report")
-                    }
-                    
-                    Button("Done") { dismiss() }
-                }
+            .toolbar { toolbarContent }
+            .sheet(isPresented: $showContextEditor) {
+                CoachContextEditorView()
             }
         }
         .onAppear {
-            if cachedAdvice.isEmpty {
+            if coachThreadIDString.isEmpty { coachThreadIDString = UUID().uuidString }
+            if coachMode == .report && cachedAdvice.isEmpty {
                 generateReport(force: false)
             }
         }
@@ -149,6 +98,132 @@ struct CoachView: View {
             Button("OK", role: .cancel) { tuneError = nil }
         } message: {
             Text(tuneError ?? "")
+        }
+    }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button { showContextEditor = true } label: {
+                Image(systemName: activeContextCount > 0 ? "brain.head.profile.fill" : "brain.head.profile")
+            }
+            .accessibilityLabel(activeContextCount > 0
+                ? "What Coach knows, \(activeContextCount) notes"
+                : "What Coach knows")
+        }
+
+        if coachMode == .report {
+            ToolbarItem(placement: .principal) {
+                if activeContextCount > 0 {
+                    Label("\(activeContextCount)", systemImage: "sparkles")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Coach is using \(activeContextCount) notes")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: { generateReport(force: true) }) {
+                    Image(systemName: "sparkles")
+                }
+                .disabled(isLoading)
+                .accessibilityLabel("Regenerate report")
+            }
+            if !cachedAdvice.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: copyToClipboard) {
+                        Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .disabled(isLoading)
+                    .accessibilityLabel(isCopied ? "Copied" : "Copy report")
+                }
+            }
+        }
+
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Done") { dismiss() }
+        }
+    }
+
+    // MARK: - Report content (preserves original behavior)
+
+    private var reportContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if isLoading {
+                    loadingView
+                } else if let error = errorMessage {
+                    ContentUnavailableView {
+                        Label("Coach Unavailable", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(error)
+                    } actions: {
+                        Button("Try Again") { generateReport(force: true) }
+                            .buttonStyle(.borderedProminent)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Coach's Report")
+                                .font(.title2).bold()
+                            Spacer()
+                            if cachedTimestamp > 0 {
+                                Text("Generated: \(Date(timeIntervalSince1970: cachedTimestamp).formatted(date: .omitted, time: .shortened))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        if cachedAdvice.isEmpty {
+                            ContentUnavailableView("Ready to Coach", systemImage: "dumbbell.fill", description: Text("I will analyze your volume, consistency, and muscle split to give you specific advice."))
+                                .padding()
+                        } else {
+                            Text(LocalizedStringKey(cachedAdvice))
+                                .padding()
+                                .cardSurface(cornerRadius: 12)
+                                .contextMenu {
+                                    Button {
+                                        copyToClipboard()
+                                    } label: {
+                                        Label("Copy Report", systemImage: "doc.on.doc")
+                                    }
+                                }
+                        }
+
+                        // MARK: - AI Plan Tune-Up
+                        if !routines.isEmpty {
+                            Button {
+                                tunePlan()
+                            } label: {
+                                if isTuning {
+                                    HStack {
+                                        ProgressView().controlSize(.small)
+                                        Text("Reviewing your plan…")
+                                    }
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, Spacing.sm)
+                                } else {
+                                    Label("Tune My Plan", systemImage: "wand.and.stars")
+                                        .font(.subheadline.weight(.semibold))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, Spacing.sm)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.purple)
+                            .disabled(isTuning || isLoading)
+
+                            Text("Proposes new target weights for your routines based on the last 4 weeks. You review every change before it applies.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding()
+                }
+            }
         }
     }
 
@@ -177,7 +252,7 @@ struct CoachView: View {
             }
         }
     }
-    
+
     private var loadingView: some View {
         AILoadingView(
             title: "Analyzing your training…",
@@ -185,33 +260,35 @@ struct CoachView: View {
         )
         .frame(maxWidth: .infinity, minHeight: 300)
     }
-    
+
     private func generateReport(force: Bool) {
         withAnimation {
             isLoading = true
             errorMessage = nil
             isCopied = false
         }
-        
+
         Task {
             do {
-                // NEW: Use split AI service
                 let apiClient = container.aiClient
+                // Inject the same standing "What Coach knows" context the chat
+                // uses, so both modes share one grounding (no drift).
                 let prompt = GeminiPromptBuilder.buildAnalysisPrompt(
                     sessions: sessions,
-                    profile: profiles.first
+                    profile: profiles.first,
+                    contextItems: contextItems
                 )
-                
+
                 let rawResponse = try await apiClient.sendRequest(prompt: prompt)
-                
+
                 // Check for rate limit in response
                 if rawResponse.contains("Rate Limit") && !cachedAdvice.isEmpty {
                     await MainActor.run { self.isLoading = false }
                     return
                 }
-                
+
                 let analysis = GeminiResponseParser.parseAnalysis(rawResponse)
-                
+
                 await MainActor.run {
                     self.cachedAdvice = analysis
                     self.cachedTimestamp = Date().timeIntervalSince1970
@@ -225,12 +302,12 @@ struct CoachView: View {
             }
         }
     }
-    
+
     private func copyToClipboard() {
         UIPasteboard.general.string = cachedAdvice
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
-        
+
         withAnimation(.snappy) { isCopied = true }
 
         Task {

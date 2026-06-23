@@ -17,10 +17,14 @@ Built with SwiftUI + SwiftData. No accounts, no servers — your data stays on y
 
 ### 🤖 AI Coach (bring your own key)
 - **Multiple providers**: Google Gemini, Anthropic Claude, OpenAI GPT, and OpenRouter (with a configurable model slug — or `openrouter/auto`)
-- Coach reports analyzing your volume, consistency, and muscle split
+- **Two modes, one toggle** — switch the Coach between:
+  - **Report** (default) — an on-demand, data-grounded analysis of your volume, consistency, and muscle split
+  - **Chat** — a real conversational thread that persists across launches, with one-tap starters (*Reset my targets · Design a program · Plan my meals · Build a workout*) and free typing
+- **"What Coach knows"** — a user-editable, persistent profile (Dietary · Injuries & Limits · Equipment · Schedule · Personal Goals · Other) injected into *every* Coach request, both modes, so it reasons from your context without being reminded
 - **Smart set suggestions** — the wand icon fills in weight/reps based on your history and goal
 - AI routine generation: name a routine ("Back and Biceps") and auto-fill it, or use the full builder with duration, equipment, and cardio constraints
 - AI weekly schedule generation that respects your split preference
+- Every request — report and chat — flows through one provider-agnostic client, so all four providers, Keychain keys, and error handling behave identically
 - Each provider's API key is stored separately in the iOS Keychain
 
 ### 📋 Routines

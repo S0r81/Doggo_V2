@@ -29,7 +29,9 @@ struct Doggo_V2App: App {
             PeptideLog.self,
             NutritionProfile.self,
             NutritionCheckIn.self,
-            DailyMacroLog.self
+            DailyMacroLog.self,
+            CoachContextItem.self,
+            CoachMessage.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
