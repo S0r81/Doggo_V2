@@ -30,6 +30,12 @@ struct DashboardView: View {
     @State private var consistencyPage: Int = 4
     @State private var volumePage: Int = 2
 
+    // Memoized all-time totals. getTotalVolume/getTotalDuration walk every
+    // session and its sets, so computing them in `body` re-ran on every render.
+    // Recompute only when the data (or unit) changes — mirrors ProgressTabView.
+    @State private var totalVolume: String = ""
+    @State private var totalDuration: String = ""
+
     // Chart heights scale with Dynamic Type instead of clipping large text
     @ScaledMetric(relativeTo: .body) private var consistencyChartHeight: CGFloat = 160
     @ScaledMetric(relativeTo: .body) private var volumeChartHeight: CGFloat = 200
@@ -111,9 +117,19 @@ struct DashboardView: View {
                     .accessibilityLabel("Settings")
                 }
             }
+            .onChange(of: recentSessions, initial: true) { _, _ in recomputeTotals() }
+            .onChange(of: unitSystem) { _, _ in recomputeTotals() }
         }
     }
-    
+
+    /// Rebuilds the memoized all-time totals from the current sessions + unit.
+    /// Called once on appear and again only when those inputs change — never in
+    /// `body`, so scrolling/re-renders don't re-walk the whole history.
+    private func recomputeTotals() {
+        totalVolume = viewModel.getTotalVolume(from: recentSessions, preferredUnit: unitSystem.rawValue)
+        totalDuration = viewModel.getTotalDuration(from: recentSessions)
+    }
+
     // MARK: - Sub-Views
     
     private var headerView: some View {
@@ -179,8 +195,8 @@ struct DashboardView: View {
         // One accent for all stat icons — the four-hue rainbow read as noise.
         LazyVGrid(columns: columns, spacing: Spacing.lg) {
             StatCard(title: "Total Workouts", value: "\(recentSessions.count)", icon: "dumbbell.fill", color: .accentColor)
-            StatCard(title: "Total Volume", value: viewModel.getTotalVolume(from: recentSessions, preferredUnit: unitSystem.rawValue), icon: "chart.bar.fill", color: .accentColor)
-            StatCard(title: "Total Time", value: viewModel.getTotalDuration(from: recentSessions), icon: "clock.fill", color: .accentColor)
+            StatCard(title: "Total Volume", value: totalVolume, icon: "chart.bar.fill", color: .accentColor)
+            StatCard(title: "Total Time", value: totalDuration, icon: "clock.fill", color: .accentColor)
             StatCard(title: "Current Streak", value: "\(viewModel.getCurrentStreak(from: recentSessions)) Days", icon: "flame.fill", color: .accentColor)
         }
         .padding(.horizontal)

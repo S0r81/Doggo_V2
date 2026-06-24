@@ -1,17 +1,29 @@
 import SwiftUI
 import SwiftData
 
+/// 180-day cutoff for RoutineGeneratorView's history fetch, computed once at
+/// first use. A file-scope constant (not a static member) so the @Query
+/// `#Predicate` can capture it by value.
+private let routineGenHistoryCutoff: Date =
+    Calendar.current.date(byAdding: .day, value: -180, to: Date()) ?? .distantPast
+
 struct RoutineGeneratorView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) var modelContext
     
     // Data Sources
-    @Query(sort: \WorkoutSession.date, order: .reverse) var history: [WorkoutSession]
+    // Bounded to the last 180 days: the AI generation prompt only consumes
+    // history.prefix(30), so this window cannot change the output, but it avoids
+    // loading the full workout history just to build context on this screen.
+    @Query(
+        filter: #Predicate<WorkoutSession> { $0.date >= routineGenHistoryCutoff },
+        sort: \WorkoutSession.date, order: .reverse
+    ) var history: [WorkoutSession]
     @Query var routines: [Routine]
     @Query(sort: \Exercise.name) var exercises: [Exercise] // Sorted for the swap picker
     @Query(sort: \AIGeneratedRoutine.date, order: .reverse) var savedGenerations: [AIGeneratedRoutine]
     @Query var profiles: [UserProfile]
-    
+
     @AppStorage("cachedCoachAdvice") private var cachedAdvice: String = ""
     
     var initialSplit: String?

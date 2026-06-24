@@ -142,7 +142,16 @@ struct RoutineListContent: View {
     var onCreateRoutine: () -> Void = {}
     var onBrowsePrograms: () -> Void = {}
 
-    // For "last performed" on rows and the active-workout guard on Start
+    // For "last performed" on rows and the active-workout guard on Start.
+    //
+    // NOTE (perf, deferred): this loads ALL completed sessions (and faults their
+    // sets) just to derive each routine's last-performed date. It is intentionally
+    // NOT date-bounded — bounding would flip a genuinely-trained-but-old routine
+    // to "Never performed", which is wrong data, not merely stale. The correct
+    // fix is to stop loading full history here: either a targeted
+    // latest-session-per-routine fetch, or denormalize `lastPerformedAt` onto
+    // Routine (updated on workout finish), the same way we denormalized
+    // WorkoutSet.routineID. Tracked for a later phase.
     @Query(
         filter: #Predicate<WorkoutSession> { $0.isCompleted == true },
         sort: \WorkoutSession.date, order: .reverse
