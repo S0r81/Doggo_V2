@@ -50,7 +50,7 @@ class ActiveWorkoutViewModel {
                 resumeSession(existingSession)
             }
         } catch {
-            print("Error checking for active session: \(error)")
+            DLog("Error checking for active session: \(error)")
         }
     }
     
@@ -219,7 +219,7 @@ class ActiveWorkoutViewModel {
         session.duration = TimeInterval(elapsedSeconds)
         // Save on the session's own (main) context — passing a main-context model
         // into the repository actor inserts it into a different context.
-        do { try modelContext?.save() } catch { print("Error: \(error)") }
+        do { try modelContext?.save() } catch { DLog("Error: \(error)") }
         stopWorkoutTimer()
         currentSession = nil
     }

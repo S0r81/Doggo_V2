@@ -99,7 +99,7 @@ struct HistoryImportView: View {
     }
     
     func handleFileSelection(_ url: URL) {
-        print("▶️ Processing CSV: \(url)")
+        DLog("▶️ Processing CSV: \(url)")
         isProcessing = true
         
         // 1. Extract Text
@@ -115,7 +115,7 @@ struct HistoryImportView: View {
             let sessions = CSVImporter.parseCSV(from: text)
             
             DispatchQueue.main.async {
-                print("✅ Parsed \(sessions.count) sessions from CSV")
+                DLog("✅ Parsed \(sessions.count) sessions from CSV")
                 self.importedSessions = sessions
                 self.isProcessing = false
                 

@@ -21,7 +21,7 @@ struct TextExtractor {
         } else if ext == "docx" || ext == "doc" {
             // iOS cannot natively read .docx text without external libraries.
             // We return a helpful message so the AI "Parser" knows what happened.
-            print("⚠️ Native .docx reading is not supported on iOS.")
+            DLog("⚠️ Native .docx reading is not supported on iOS.")
             return "ERROR: Please convert this Word document to PDF or Text before importing."
         } else {
             // Fallback for plain text or unknown types

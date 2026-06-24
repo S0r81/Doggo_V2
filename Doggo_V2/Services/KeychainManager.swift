@@ -15,7 +15,11 @@ class KeychainManager {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: provider.keychainAccount,
-            kSecValueData as String: data
+            kSecValueData as String: data,
+            // Keep the user's API key on THIS device only: not synced to iCloud
+            // Keychain and not carried into encrypted device backups, and only
+            // readable while the device is unlocked.
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         ]
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)

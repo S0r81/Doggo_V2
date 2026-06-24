@@ -39,7 +39,7 @@ final class HistoryViewModel {
             sessions = try context.fetch(descriptor)
         } catch {
             self.error = error
-            print("Error loading history: \(error)")
+            DLog("Error loading history: \(error)")
         }
     }
     
@@ -51,7 +51,7 @@ final class HistoryViewModel {
             await loadHistory()
         } catch {
             self.error = error
-            print("Error deleting session: \(error)")
+            DLog("Error deleting session: \(error)")
         }
     }
     
@@ -70,7 +70,7 @@ final class HistoryViewModel {
             await loadHistory()
         } catch {
             self.error = error
-            print("Error creating manual entry: \(error)")
+            DLog("Error creating manual entry: \(error)")
         }
     }
 
@@ -96,14 +96,14 @@ final class HistoryViewModel {
 
                 context.delete(session)
                 deletedAny = true
-                print("👻 Silently deleted ghost session from: \(session.date)")
+                DLog("👻 Silently deleted ghost session from: \(session.date)")
             }
 
             if deletedAny {
                 try context.save()
             }
         } catch {
-            print("Cleanup error: \(error)")
+            DLog("Cleanup error: \(error)")
         }
     }
 }

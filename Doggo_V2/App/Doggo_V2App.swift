@@ -102,9 +102,14 @@ struct RootView: View {
             }
         }
         // Stage 2: catch doggov2://import/program?payload=… in any launch state.
+        // The payload is untrusted, attacker-controllable input; decode it OFF
+        // the main actor so a hostile or heavy link can't hang the UI on open.
         .onOpenURL { url in
-            if let shared = ProgramShareManager.parse(url) {
-                pendingImport = PendingProgramImport(program: shared)
+            Task {
+                let shared = await Task.detached(priority: .userInitiated) {
+                    ProgramShareManager.parse(url)
+                }.value
+                if let shared { pendingImport = PendingProgramImport(program: shared) }
             }
         }
         // Stage 3: preview + confirm before inserting.

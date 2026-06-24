@@ -60,12 +60,12 @@ struct GeminiResponseParser {
     static func parseImport(_ text: String) throws -> [AIImportedRoutine] {
         guard let start = text.firstIndex(of: "["),
               let end = text.lastIndex(of: "]") else {
-            print("❌ Could not find JSON array brackets.")
+            DLog("❌ Could not find JSON array brackets.")
             throw ParsingError.noJSON
         }
         
         let jsonString = String(text[start...end])
-        print("🔍 RAW AI JSON: \(jsonString)")
+        DLog("🔍 RAW AI JSON: \(jsonString)")
         
         guard let data = jsonString.data(using: .utf8) else {
             throw ParsingError.invalidEncoding

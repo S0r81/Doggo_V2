@@ -17,12 +17,13 @@
 //
 
 import Foundation
+import Compression
 
 // MARK: - Shareable Snapshot
 
 /// A fully self-contained program: everything needed to rebuild the routines
 /// on another device, independent of that device's existing data.
-struct SharedProgram: Codable, Equatable, Sendable {
+nonisolated struct SharedProgram: Codable, Equatable, Sendable {
     /// Bumped when the payload shape changes; older apps reject newer versions.
     var schemaVersion: Int
     var name: String
@@ -38,7 +39,7 @@ struct SharedProgram: Codable, Equatable, Sendable {
         self.days = days
     }
 
-    struct Day: Codable, Equatable, Sendable {
+    nonisolated struct Day: Codable, Equatable, Sendable {
         var routineName: String
         var note: String
         /// Weekday assignment from the source program ("Monday"…), if any.
@@ -46,7 +47,7 @@ struct SharedProgram: Codable, Equatable, Sendable {
         var items: [Item]
     }
 
-    struct Item: Codable, Equatable, Sendable {
+    nonisolated struct Item: Codable, Equatable, Sendable {
         var name: String
         var muscleGroup: String
         /// Exercise.type ("Strength" / "Cardio").
@@ -59,7 +60,7 @@ struct SharedProgram: Codable, Equatable, Sendable {
         var sets: [SetTemplate]
     }
 
-    struct SetTemplate: Codable, Equatable, Sendable {
+    nonisolated struct SetTemplate: Codable, Equatable, Sendable {
         var reps: Int
         var repsUpper: Int?
         var weight: Double?
@@ -116,15 +117,22 @@ extension SharedProgram {
 
 // MARK: - Codec
 
-enum ProgramShareManager {
+nonisolated enum ProgramShareManager {
     static let scheme = "doggov2"
     static let host = "import"
     static let path = "/program"
     static let payloadKey = "payload"
 
-    /// Upper bound on the encoded payload, as a guard against pathological or
-    /// hostile links (e.g. decompression bombs) before we touch the data.
+    /// First guard: upper bound on the *encoded* payload, applied before we
+    /// touch the data at all.
     static let maxPayloadCharacters = 60_000
+
+    /// Second guard: hard cap on the *decompressed* size. zlib can amplify
+    /// ~1000×, so the input cap alone isn't enough — inflate is bounded to this
+    /// many bytes and aborts past it, so a decompression bomb can never force a
+    /// large allocation. A legitimate program snapshot is a few KB; 2 MB is
+    /// enormous headroom.
+    static let maxDecompressedBytes = 2_000_000
 
     enum ShareError: LocalizedError {
         case urlConstructionFailed
@@ -178,16 +186,66 @@ enum ProgramShareManager {
         return decodePayload(payload)
     }
 
-    /// base64url → zlib → JSON → SharedProgram. Returns nil on any corruption
-    /// or an unsupported (newer) schema version.
+    /// base64url → bounded zlib inflate → JSON → SharedProgram. Returns nil on
+    /// any corruption, an over-sized payload, a decompression bomb, or an
+    /// unsupported (newer) schema version. Never crashes and never allocates
+    /// more than `maxDecompressedBytes` of decompressed output.
     static func decodePayload(_ payload: String) -> SharedProgram? {
         guard payload.count <= maxPayloadCharacters,
               let compressed = base64URLDecode(payload),
-              let json = try? (compressed as NSData).decompressed(using: .zlib) as Data,
+              let json = zlibInflate(compressed, limit: maxDecompressedBytes),
               let program = try? JSONDecoder().decode(SharedProgram.self, from: json),
               program.schemaVersion <= SharedProgram.currentVersion
         else { return nil }
         return program
+    }
+
+    // MARK: - Bounded inflate
+
+    /// Inflates an Apple `.zlib` (raw DEFLATE) buffer back to bytes, streaming
+    /// through a fixed window and aborting the moment output would exceed
+    /// `limit`. Returns nil on corrupt input or overflow — so a decompression
+    /// bomb fails safe instead of forcing an unbounded allocation.
+    private static func zlibInflate(_ input: Data, limit: Int) -> Data? {
+        guard !input.isEmpty else { return nil }
+
+        let bufferSize = 64 * 1024
+        let dstBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { dstBuffer.deallocate() }
+
+        var stream = compression_stream(dst_ptr: dstBuffer, dst_size: bufferSize,
+                                        src_ptr: UnsafePointer(dstBuffer), src_size: 0,
+                                        state: nil)
+        guard compression_stream_init(&stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
+            return nil
+        }
+        defer { compression_stream_destroy(&stream) }
+
+        var output = Data()
+        return input.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Data? in
+            guard let srcBase = raw.bindMemory(to: UInt8.self).baseAddress else { return nil }
+            stream.src_ptr = srcBase
+            stream.src_size = input.count
+            stream.dst_ptr = dstBuffer
+            stream.dst_size = bufferSize
+
+            while true {
+                let status = compression_stream_process(&stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
+                switch status {
+                case COMPRESSION_STATUS_OK, COMPRESSION_STATUS_END:
+                    let produced = bufferSize - stream.dst_size
+                    if produced > 0 {
+                        output.append(dstBuffer, count: produced)
+                        if output.count > limit { return nil }   // bomb guard — fail safe
+                    }
+                    if status == COMPRESSION_STATUS_END { return output }
+                    stream.dst_ptr = dstBuffer                    // window full → reset and continue
+                    stream.dst_size = bufferSize
+                default:
+                    return nil                                    // corrupt input
+                }
+            }
+        }
     }
 
     // MARK: - base64url

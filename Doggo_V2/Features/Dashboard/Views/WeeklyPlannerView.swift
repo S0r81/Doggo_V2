@@ -228,7 +228,7 @@ struct WeeklyPlannerView: View {
                     isGenerating = false
                 }
             } catch {
-                print("AI Error: \(error)")
+                DLog("AI Error: \(error)")
                 await MainActor.run { isGenerating = false }
             }
         }
@@ -265,7 +265,7 @@ struct WeeklyPlannerView: View {
                 modelContext.saveLogging()
                 userProfile?.weeklySchedule[day] = newRoutine.id.uuidString
                 
-                print("✨ Auto-populating new routine: \(routineName)")
+                DLog("✨ Auto-populating new routine: \(routineName)")
                 Task {
                     do {
                         // Use new AI service
@@ -314,7 +314,7 @@ struct WeeklyPlannerView: View {
                             }
                         }
                     } catch {
-                        print("❌ Failed to populate \(routineName): \(error)")
+                        DLog("❌ Failed to populate \(routineName): \(error)")
                     }
                 }
             }

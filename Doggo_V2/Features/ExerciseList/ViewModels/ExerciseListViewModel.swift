@@ -22,7 +22,7 @@ class ExerciseListViewModel {
             context.delete(exercise)
         } else {
             // Optional: You could add logic here to just "Hide" it instead
-            print("Cannot delete system exercise: \(exercise.name)")
+            DLog("Cannot delete system exercise: \(exercise.name)")
         }
     }
     

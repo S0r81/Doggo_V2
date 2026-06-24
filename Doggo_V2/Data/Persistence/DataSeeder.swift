@@ -19,7 +19,7 @@ class DataSeeder {
         // Only seed if the database is completely empty
         guard count == 0 else { return }
         
-        print("Database empty. Seeding default exercises...")
+        DLog("Database empty. Seeding default exercises...")
         
         // 2. The Big List of Defaults
         let defaults: [(name: String, muscle: String, type: String)] = [
@@ -110,9 +110,9 @@ class DataSeeder {
         // 4. Save
         do {
             try context.save()
-            print("Success! Seeded \(defaults.count + cardioDefaults.count) exercises.")
+            DLog("Success! Seeded \(defaults.count + cardioDefaults.count) exercises.")
         } catch {
-            print("Failed to seed exercises: \(error)")
+            DLog("Failed to seed exercises: \(error)")
         }
     }
 }

@@ -57,18 +57,18 @@ struct DocumentPicker: UIViewControllerRepresentable {
                 // Perform the copy
                 try FileManager.default.copyItem(at: sourceURL, to: tempURL)
                 
-                print("✅ File copied to: \(tempURL.path)")
+                DLog("✅ File copied to: \(tempURL.path)")
                 
                 // 3. Hand off the SAFE, COPIED url
                 parent.onPick(tempURL)
                 
             } catch {
-                print("❌ Failed to copy file: \(error.localizedDescription)")
+                DLog("❌ Failed to copy file: \(error.localizedDescription)")
             }
         }
         
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            print("⚠️ Document picker cancelled")
+            DLog("⚠️ Document picker cancelled")
         }
     }
 }

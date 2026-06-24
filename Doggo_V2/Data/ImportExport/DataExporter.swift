@@ -132,7 +132,7 @@ struct DataExporter {
             try csv.write(to: fileURL, atomically: true, encoding: .utf8)
             return fileURL
         } catch {
-            print("Error creating CSV: \(error)")
+            DLog("Error creating CSV: \(error)")
             return nil
         }
     }
