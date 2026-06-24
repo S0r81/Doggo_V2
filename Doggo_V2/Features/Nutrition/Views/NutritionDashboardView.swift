@@ -30,6 +30,7 @@ struct NutritionDashboardView: View {
     @State private var isStartingReverse = false
     @State private var isLoggingCheckIn = false
     @State private var checkInResult: WeeklyCheckInResult?
+    @State private var errorMessage: String?
     @State private var selectedDate: Date?   // chart scrub position (Date-typed)
 
     private var accent: Color { Color.accent(for: userTheme) }
@@ -97,6 +98,14 @@ struct NutritionDashboardView: View {
                 Button("Got it") { checkInResult = nil }
             } message: {
                 Text(checkInAlertMessage)
+            }
+            .alert("Couldn’t Update Diet", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
             }
         }
     }
@@ -338,10 +347,18 @@ struct NutritionDashboardView: View {
         let repository = NutritionRepository(modelContainer: modelContext.container)
         let id = profile.persistentModelID
         Task {
-            _ = try? await repository.startReverseDiet(profileID: id)
-            await MainActor.run {
-                HapticManager.shared.notification(type: .success)
-                isStartingReverse = false
+            do {
+                _ = try await repository.startReverseDiet(profileID: id)
+                await MainActor.run {
+                    HapticManager.shared.notification(type: .success)
+                    isStartingReverse = false
+                }
+            } catch {
+                await MainActor.run {
+                    HapticManager.shared.notification(type: .error)
+                    errorMessage = error.localizedDescription
+                    isStartingReverse = false
+                }
             }
         }
     }

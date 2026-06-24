@@ -27,6 +27,7 @@ struct PeptideDashboardView: View {
     @State private var showCalculator = false
     @State private var editingProfile: PeptideProfile?
     @State private var showNewProfile = false
+    @State private var errorMessage: String?
 
     private var accent: Color { Color.accent(for: userTheme) }
     private var activeProfiles: [PeptideProfile] { profiles.filter { $0.isActive } }
@@ -98,6 +99,14 @@ struct PeptideDashboardView: View {
                 PeptideEditorView(container: container, profileToEdit: profile, onSaved: syncReminders)
             }
             .task { syncReminders() }
+            .alert("Couldn’t Log Dose", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
     }
 
@@ -336,8 +345,15 @@ struct PeptideDashboardView: View {
         let id = profile.persistentModelID
         let unit = profile.schedule?.doseUnit ?? .mcg
         Task {
-            _ = try? await container.peptideRepository.logDose(profileID: id, doseMcg: dose, doseUnit: unit, date: stamp, note: nil)
-            await MainActor.run { HapticManager.shared.notification(type: .success) }
+            do {
+                _ = try await container.peptideRepository.logDose(profileID: id, doseMcg: dose, doseUnit: unit, date: stamp, note: nil)
+                await MainActor.run { HapticManager.shared.notification(type: .success) }
+            } catch {
+                await MainActor.run {
+                    HapticManager.shared.notification(type: .error)
+                    errorMessage = error.localizedDescription
+                }
+            }
         }
     }
 

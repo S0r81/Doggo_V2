@@ -20,6 +20,7 @@ struct NutritionHistoryView: View {
 
     @State private var editingCheckIn: NutritionCheckIn?
     @State private var editWeightInput: Double = 0
+    @State private var errorMessage: String?
 
     private var checkIns: [NutritionCheckIn] {
         profile.checkIns.sorted { $0.date > $1.date }
@@ -66,6 +67,14 @@ struct NutritionHistoryView: View {
                 Button("Cancel", role: .cancel) { editingCheckIn = nil }
             } message: {
                 Text("Update the rolling-average weight for this week.")
+            }
+            .alert("Couldn’t Save", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
             }
         }
     }
@@ -115,8 +124,15 @@ struct NutritionHistoryView: View {
         let repository = NutritionRepository(modelContainer: container)
         editingCheckIn = nil
         Task {
-            try? await repository.updateHistoricalCheckIn(checkInID: id, newWeight: newKg)
-            await MainActor.run { HapticManager.shared.notification(type: .success) }
+            do {
+                try await repository.updateHistoricalCheckIn(checkInID: id, newWeight: newKg)
+                await MainActor.run { HapticManager.shared.notification(type: .success) }
+            } catch {
+                await MainActor.run {
+                    HapticManager.shared.notification(type: .error)
+                    errorMessage = error.localizedDescription
+                }
+            }
         }
     }
 }

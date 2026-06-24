@@ -46,6 +46,7 @@ struct ProfileSettingsView: View {
                             Image(systemName: "person.crop.circle.fill")
                                 .font(.system(size: 80))
                                 .foregroundStyle(.blue)
+                                .accessibilityHidden(true) // decorative avatar; name below carries the identity
                             Text(profile.name).font(.title2).bold()
                             Text(profile.experienceLevel)
                                 .font(.caption)

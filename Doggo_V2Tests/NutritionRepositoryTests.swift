@@ -13,6 +13,12 @@ import Foundation
 import SwiftData
 @testable import Doggo_V2
 
+// @MainActor: the result types and config this suite reads/mutates are
+// main-actor-isolated under the project's default actor isolation, so the suite
+// drives them from the main actor. The repository under test is a @ModelActor —
+// its work still runs on its own actor via `await`, so this changes only the
+// test's isolation context, not what any test asserts.
+@MainActor
 struct NutritionRepositoryTests {
 
     private func makeStack() throws -> (NutritionRepository, ModelContainer) {
